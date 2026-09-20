@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>WatchParty - YouTube Sincronizado</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #0f0f0f; color: #fff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px; }
+    
+    header { width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    h1 { font-size: 1.5rem; color: #ff0000; }
+
+    .room-actions { display: flex; gap: 10px; }
+    button { background: #ff0000; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #cc0000; }
+
+    .input-group { width: 100%; max-width: 900px; display: flex; gap: 10px; margin-bottom: 20px; }
+    input[type="text"] { flex: 1; padding: 12px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: white; font-size: 14px; }
+    input:focus { outline: 1px solid #ff0000; }
+
+    .player-wrapper { width: 100%; max-width: 900px; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    #player { width: 100%; height: 100%; }
+
+    .notice { margin-top: 15px; font-size: 0.85rem; color: #aaa; text-align: center; max-width: 700px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🎬 WatchParty</h1>
+    <div class="room-actions">
+      <button id="copy-btn">📋 Copiar enlace de sala</button>
+    </div>
+  </header>
+
+  <div class="input-group">
+    <input type="text" id="video-url" placeholder="Pega aquí el enlace de YouTube (ej: https://www.youtube.com/watch?v=...)">
+    <button id="load-btn">Cargar vídeo</button>
+  </div>
+
+  <div class="player-wrapper">
+    <div id="player"></div>
+  </div>
+
+  <p class="notice">
+    💡 <b>Sin anuncios:</b> Para evitar la publicidad de YouTube, asegúrate de que tú y tus amigos tengáis instalado <b>uBlock Origin</b> o utilicéis el navegador <b>Brave</b>.
+  </p>
+
+  <script>
+    // 1. Obtener o generar sala en la URL (?room=id)
+    const urlParams = new URLSearchParams(window.location.search);
+    let roomId = urlParams.get('room');
+    if (!roomId) {
+      roomId = Math.random().toString(36).substring(2, 9);
+      window.location.search = `?room=${roomId}`;
+    }
+
+    const socket = io();
+    let player;
+    let isRemoteAction = false; // Evita bucles infinitos al sincronizar eventos
+
+    // 2. Cargar YouTube IFrame API
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    function onYouTubeIframeAPIReady() {
+      // Unirse a la sala vía sockets una vez la API esté lista
+      socket.emit('join-room', roomId);
+    }
+
+    // Inicializar reproductor con el estado recibido del servidor
+    socket.on('sync-init', (data) => {
+      player = new YT.Player('player', {
+        videoId: data.videoId,
+        playerVars: {
+          'playsinline': 1,
+          'autoplay': data.isPlaying ? 1 : 0,
+          'start': Math.floor(data.currentTime)
+        },
+        events: {
+          'onStateChange': onPlayerStateChange
+        }
+      });
+    });
+
+    // 3. Manejo de eventos del reproductor local
+    function onPlayerStateChange(event) {
+      if (isRemoteAction) {
+        isRemoteAction = false;
+        return;
+      }
+
+      const currentTime = player.getCurrentTime();
+
+      if (event.data === YT.PlayerState.PLAYING) {
+        socket.emit('play', currentTime);
+      } else if (event.data === YT.PlayerState.PAUSED) {
+        socket.emit('pause', currentTime);
+      }
+    }
+
+    // 4. Recepción de eventos del Socket (Acciones remotas de amigos)
+    socket.on('play', (time) => {
+      isRemoteAction = true;
+      if (Math.abs(player.getCurrentTime() - time) > 1.5) {
+        player.seekTo(time, true);
+      }
+      player.playVideo();
+    });
+
+    socket.on('pause', (time) => {
+      isRemoteAction = true;
+      player.pauseVideo();
+      if (time) player.seekTo(time, true);
+    });
+
+    socket.on('seek', (time) => {
+      isRemoteAction = true;
+      player.seekTo(time, true);
+    });
+
+    socket.on('video-changed', (videoId) => {
+      isRemoteAction = true;
+      player.loadVideoById(videoId);
+    });
+
+    // 5. Utilidades UI (Cargar nuevo vídeo y copiar link)
+    function extractVideoId(url) {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = url.match(regExp);
+      return (match && match[2].length === 11) ? match[2] : null;
+    }
+
+    document.getElementById('load-btn').addEventListener('click', () => {
+      const input = document.getElementById('video-url');
+      const videoId = extractVideoId(input.value.trim());
+      if (videoId) {
+        socket.emit('change-video', videoId);
+        input.value = '';
+      } else {
+        alert('Enlace de YouTube no válido.');
+      }
+    });
+
+    document.getElementById('copy-btn').addEventListener('click', () => {
+      navigator.clipboard.writeText(window.location.href);
+      alert('¡Enlace de la sala copiado al portapapeles!');
+    });
+  </script>
+</body>
+</html>
