@@ -97,7 +97,7 @@
     </div>
   </div>
 
-  <script>
+<script>
     const urlParams = new URLSearchParams(window.location.search);
     let roomId = urlParams.get('room');
     if (!roomId) {
@@ -107,7 +107,18 @@
 
     const socket = io();
     let player;
+
+    // Control de bloqueo para evitar bucles entre usuarios
     let isRemoteAction = false;
+    let remoteActionTimeout;
+
+    function setRemoteAction(duration = 1200) {
+      isRemoteAction = true;
+      clearTimeout(remoteActionTimeout);
+      remoteActionTimeout = setTimeout(() => {
+        isRemoteAction = false;
+      }, duration);
+    }
 
     // Cargar API de YouTube
     const tag = document.createElement('script');
@@ -121,7 +132,11 @@
     socket.on('sync-init', (data) => {
       player = new YT.Player('player', {
         videoId: data.videoId,
-        playerVars: { 'autoplay': data.isPlaying ? 1 : 0, 'start': Math.floor(data.currentTime) },
+        playerVars: { 
+          'autoplay': data.isPlaying ? 1 : 0, 
+          'start': Math.floor(data.currentTime),
+          'playsinline': 1
+        },
         events: {
           'onStateChange': onPlayerStateChange
         }
@@ -129,43 +144,49 @@
       renderQueue(data.playlist || []);
     });
 
-    // Control de eventos del reproductor
+    // Eventos del reproductor local
     function onPlayerStateChange(event) {
-      if (isRemoteAction) {
-        isRemoteAction = false;
-        return;
-      }
+      // Si la acción vino de otro usuario por socket, la ignoramos
+      if (isRemoteAction) return;
+
+      const currentTime = player.getCurrentTime();
 
       if (event.data === YT.PlayerState.PLAYING) {
-        socket.emit('play', player.getCurrentTime());
+        socket.emit('play', currentTime);
       } else if (event.data === YT.PlayerState.PAUSED) {
-        socket.emit('pause', player.getCurrentTime());
+        socket.emit('pause', currentTime);
       } else if (event.data === YT.PlayerState.ENDED) {
-        // Notificar que acabó el vídeo para pasar al siguiente de la cola
         socket.emit('video-ended');
       }
     }
 
-    // Sockets recibidos
+    // --- RECEPCIÓN DE SOCKETS (Acciones de otros usuarios) ---
+
     socket.on('play', (time) => {
-      isRemoteAction = true;
-      if (Math.abs(player.getCurrentTime() - time) > 1.5) player.seekTo(time, true);
+      setRemoteAction(1200);
+      if (time && Math.abs(player.getCurrentTime() - time) > 1.5) {
+        player.seekTo(time, true);
+      }
       player.playVideo();
     });
 
     socket.on('pause', (time) => {
-      isRemoteAction = true;
+      setRemoteAction(1200);
       player.pauseVideo();
-      if (time) player.seekTo(time, true);
+      // Solo sincronizamos el segundo si el desfase es notable (> 2 segundos)
+      // para evitar que seekTo reanude el vídeo accidentalmente
+      if (time && Math.abs(player.getCurrentTime() - time) > 2) {
+        player.seekTo(time, true);
+      }
     });
 
     socket.on('seek', (time) => {
-      isRemoteAction = true;
+      setRemoteAction(1200);
       player.seekTo(time, true);
     });
 
     socket.on('video-changed', (videoId) => {
-      isRemoteAction = true;
+      setRemoteAction(2000);
       player.loadVideoById(videoId);
     });
 
@@ -173,7 +194,8 @@
       renderQueue(queue);
     });
 
-    // Búsqueda en YouTube
+    // --- BÚSQUEDA Y LISTA DE ESPERA ---
+
     document.getElementById('search-btn').addEventListener('click', performSearch);
     document.getElementById('search-input').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') performSearch();
