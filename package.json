@@ -1,13 +1,14 @@
 {
   "name": "youtube-watch-party",
-  "version": "1.0.0",
-  "description": "Sala para ver YouTube sincronizado con amigos",
+  "version": "1.1.0",
+  "description": "Sala para ver YouTube sincronizado con amigos, buscador y playlist",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "yt-search": "^2.11.1"
   }
 }
