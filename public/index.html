@@ -2,54 +2,102 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>WatchParty - YouTube Sincronizado</title>
+  <title>WatchParty - Con Buscador y Cola</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background-color: #0f0f0f; color: #fff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #0f0f0f; color: #fff; padding: 15px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; max-width: 1400px; margin: 0 auto 15px; }
+    h1 { font-size: 1.3rem; color: #ff0000; display: flex; align-items: center; gap: 8px; }
     
-    header { width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    h1 { font-size: 1.5rem; color: #ff0000; }
-
-    .room-actions { display: flex; gap: 10px; }
-    button { background: #ff0000; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    button { background: #ff0000; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
     button:hover { background: #cc0000; }
+    .btn-secondary { background: #272727; }
+    .btn-secondary:hover { background: #3f3f3f; }
 
-    .input-group { width: 100%; max-width: 900px; display: flex; gap: 10px; margin-bottom: 20px; }
-    input[type="text"] { flex: 1; padding: 12px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: white; font-size: 14px; }
-    input:focus { outline: 1px solid #ff0000; }
+    /* Contenedor Principal en 2 columnas */
+    .main-layout { display: grid; grid-template-columns: 1fr 380px; gap: 20px; max-width: 1400px; margin: 0 auto; }
+    @media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
 
-    .player-wrapper { width: 100%; max-width: 900px; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    /* Columna Izquierda: Reproductor */
+    .player-section { display: flex; flex-direction: column; gap: 10px; }
+    .player-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; overflow: hidden; }
     #player { width: 100%; height: 100%; }
 
-    .notice { margin-top: 15px; font-size: 0.85rem; color: #aaa; text-align: center; max-width: 700px; }
+    /* Columna Derecha: Panel de Búsqueda y Cola */
+    .sidebar { background: #1a1a1a; border-radius: 10px; display: flex; flex-direction: column; height: calc(100vh - 90px); min-height: 500px; }
+    .tabs { display: flex; border-bottom: 1px solid #2a2a2a; }
+    .tab-btn { flex: 1; background: transparent; border-radius: 0; padding: 12px; border-bottom: 2px solid transparent; color: #aaa; }
+    .tab-btn.active { color: #fff; border-bottom: 2px solid #ff0000; font-weight: bold; }
+
+    .tab-content { display: none; flex-direction: column; flex: 1; overflow: hidden; padding: 12px; }
+    .tab-content.active { display: flex; }
+
+    /* Buscador */
+    .search-bar { display: flex; gap: 6px; margin-bottom: 12px; }
+    .search-bar input { flex: 1; padding: 9px 12px; border-radius: 6px; border: 1px solid #333; background: #0f0f0f; color: white; font-size: 13px; }
+    .item-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+
+    /* Tarjetas de vídeos (Resultados y Cola) */
+    .video-card { display: flex; gap: 10px; background: #222; border-radius: 6px; padding: 8px; align-items: center; }
+    .video-card img { width: 90px; height: 50px; object-fit: cover; border-radius: 4px; }
+    .video-info { flex: 1; min-width: 0; }
+    .video-info .title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .video-info .channel { font-size: 11px; color: #aaa; }
+    .card-actions { display: flex; flex-direction: column; gap: 4px; }
+    .card-actions button { padding: 4px 8px; font-size: 11px; }
+
+    .empty-state { text-align: center; color: #777; margin-top: 40px; font-size: 13px; }
   </style>
 </head>
 <body>
 
   <header>
     <h1>🎬 WatchParty</h1>
-    <div class="room-actions">
-      <button id="copy-btn">📋 Copiar enlace de sala</button>
-    </div>
+    <button id="copy-btn">📋 Copiar enlace de sala</button>
   </header>
 
-  <div class="input-group">
-    <input type="text" id="video-url" placeholder="Pega aquí el enlace de YouTube (ej: https://www.youtube.com/watch?v=...)">
-    <button id="load-btn">Cargar vídeo</button>
-  </div>
+  <div class="main-layout">
+    <!-- Columna Izquierda: Vídeo -->
+    <div class="player-section">
+      <div class="player-wrapper">
+        <div id="player"></div>
+      </div>
+      <p style="font-size: 12px; color: #888; text-align: center;">
+        💡 <i>Para disfrutar sin anuncios, utilizad extensiones bloqueadoras (como uBlock Origin) o el navegador Brave.</i>
+      </p>
+    </div>
 
-  <div class="player-wrapper">
-    <div id="player"></div>
-  </div>
+    <!-- Columna Derecha: Búsqueda y Lista -->
+    <div class="sidebar">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('search')">🔍 Buscar en YouTube</button>
+        <button class="tab-btn" onclick="switchTab('queue')">📑 Cola (<span id="queue-count">0</span>)</button>
+      </div>
 
-  <p class="notice">
-    💡 <b>Sin anuncios:</b> Para evitar la publicidad de YouTube, asegúrate de que tú y tus amigos tengáis instalado <b>uBlock Origin</b> o utilicéis el navegador <b>Brave</b>.
-  </p>
+      <!-- Pestaña Buscar -->
+      <div id="tab-search" class="tab-content active">
+        <div class="search-bar">
+          <input type="text" id="search-input" placeholder="Escribe el nombre de la canción o vídeo...">
+          <button id="search-btn">Buscar</button>
+        </div>
+        <div class="item-list" id="search-results">
+          <div class="empty-state">Busca un vídeo para reproducirlo o añadirlo a la lista.</div>
+        </div>
+      </div>
+
+      <!-- Pestaña Cola -->
+      <div id="tab-queue" class="tab-content">
+        <div class="item-list" id="queue-list">
+          <div class="empty-state">La cola está vacía. Añade vídeos desde el buscador.</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
-    // 1. Obtener o generar sala en la URL (?room=id)
     const urlParams = new URLSearchParams(window.location.search);
     let roomId = urlParams.get('room');
     if (!roomId) {
@@ -59,56 +107,49 @@
 
     const socket = io();
     let player;
-    let isRemoteAction = false; // Evita bucles infinitos al sincronizar eventos
+    let isRemoteAction = false;
 
-    // 2. Cargar YouTube IFrame API
+    // Cargar API de YouTube
     const tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
-    const firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    document.body.appendChild(tag);
 
     function onYouTubeIframeAPIReady() {
-      // Unirse a la sala vía sockets una vez la API esté lista
       socket.emit('join-room', roomId);
     }
 
-    // Inicializar reproductor con el estado recibido del servidor
     socket.on('sync-init', (data) => {
       player = new YT.Player('player', {
         videoId: data.videoId,
-        playerVars: {
-          'playsinline': 1,
-          'autoplay': data.isPlaying ? 1 : 0,
-          'start': Math.floor(data.currentTime)
-        },
+        playerVars: { 'autoplay': data.isPlaying ? 1 : 0, 'start': Math.floor(data.currentTime) },
         events: {
           'onStateChange': onPlayerStateChange
         }
       });
+      renderQueue(data.playlist || []);
     });
 
-    // 3. Manejo de eventos del reproductor local
+    // Control de eventos del reproductor
     function onPlayerStateChange(event) {
       if (isRemoteAction) {
         isRemoteAction = false;
         return;
       }
 
-      const currentTime = player.getCurrentTime();
-
       if (event.data === YT.PlayerState.PLAYING) {
-        socket.emit('play', currentTime);
+        socket.emit('play', player.getCurrentTime());
       } else if (event.data === YT.PlayerState.PAUSED) {
-        socket.emit('pause', currentTime);
+        socket.emit('pause', player.getCurrentTime());
+      } else if (event.data === YT.PlayerState.ENDED) {
+        // Notificar que acabó el vídeo para pasar al siguiente de la cola
+        socket.emit('video-ended');
       }
     }
 
-    // 4. Recepción de eventos del Socket (Acciones remotas de amigos)
+    // Sockets recibidos
     socket.on('play', (time) => {
       isRemoteAction = true;
-      if (Math.abs(player.getCurrentTime() - time) > 1.5) {
-        player.seekTo(time, true);
-      }
+      if (Math.abs(player.getCurrentTime() - time) > 1.5) player.seekTo(time, true);
       player.playVideo();
     });
 
@@ -128,27 +169,105 @@
       player.loadVideoById(videoId);
     });
 
-    // 5. Utilidades UI (Cargar nuevo vídeo y copiar link)
-    function extractVideoId(url) {
-      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-      const match = url.match(regExp);
-      return (match && match[2].length === 11) ? match[2] : null;
-    }
-
-    document.getElementById('load-btn').addEventListener('click', () => {
-      const input = document.getElementById('video-url');
-      const videoId = extractVideoId(input.value.trim());
-      if (videoId) {
-        socket.emit('change-video', videoId);
-        input.value = '';
-      } else {
-        alert('Enlace de YouTube no válido.');
-      }
+    socket.on('queue-updated', (queue) => {
+      renderQueue(queue);
     });
 
+    // Búsqueda en YouTube
+    document.getElementById('search-btn').addEventListener('click', performSearch);
+    document.getElementById('search-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') performSearch();
+    });
+
+    function performSearch() {
+      const q = document.getElementById('search-input').value.trim();
+      if (!q) return;
+      document.getElementById('search-results').innerHTML = '<div class="empty-state">Buscando vídeos...</div>';
+      socket.emit('search-videos', q);
+    }
+
+    socket.on('search-results', (results) => {
+      const container = document.getElementById('search-results');
+      container.innerHTML = '';
+      if (!results || results.length === 0) {
+        container.innerHTML = '<div class="empty-state">No se encontraron resultados.</div>';
+        return;
+      }
+
+      results.forEach((v) => {
+        const div = document.createElement('div');
+        div.className = 'video-card';
+        div.innerHTML = `
+          <img src="${v.thumbnail}" alt="">
+          <div class="video-info">
+            <div class="title" title="${v.title}">${v.title}</div>
+            <div class="channel">${v.author} • ${v.duration}</div>
+          </div>
+          <div class="card-actions">
+            <button onclick='playNow(${JSON.stringify(v)})'>▶ Ver</button>
+            <button class="btn-secondary" onclick='addToQueue(${JSON.stringify(v)})'>+ Cola</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    });
+
+    function playNow(video) {
+      socket.emit('change-video', video.videoId);
+    }
+
+    function addToQueue(video) {
+      socket.emit('add-to-queue', video);
+    }
+
+    function removeQueueItem(index) {
+      socket.emit('remove-from-queue', index);
+    }
+
+    function renderQueue(queue) {
+      document.getElementById('queue-count').innerText = queue.length;
+      const list = document.getElementById('queue-list');
+      list.innerHTML = '';
+
+      if (queue.length === 0) {
+        list.innerHTML = '<div class="empty-state">La cola está vacía. Añade vídeos desde el buscador.</div>';
+        return;
+      }
+
+      queue.forEach((v, index) => {
+        const div = document.createElement('div');
+        div.className = 'video-card';
+        div.innerHTML = `
+          <img src="${v.thumbnail}" alt="">
+          <div class="video-info">
+            <div class="title">${v.title}</div>
+            <div class="channel">${v.author || ''}</div>
+          </div>
+          <div class="card-actions">
+            <button class="btn-secondary" onclick="removeQueueItem(${index})">❌</button>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    // Pestañas
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      if (tab === 'search') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('tab-search').classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('tab-queue').classList.add('active');
+      }
+    }
+
+    // Copiar enlace
     document.getElementById('copy-btn').addEventListener('click', () => {
       navigator.clipboard.writeText(window.location.href);
-      alert('¡Enlace de la sala copiado al portapapeles!');
+      alert('¡Enlace de sala copiado!');
     });
   </script>
 </body>
