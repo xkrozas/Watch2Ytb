@@ -194,6 +194,11 @@
       renderQueue(queue);
     });
 
+    socket.on('room-deleted', () => {
+      alert('Esta sala ha sido cerrada o eliminada por el administrador.');
+      window.location.href = '/';
+    });
+
     // --- BÚSQUEDA Y LISTA DE ESPERA ---
 
     document.getElementById('search-btn').addEventListener('click', performSearch);
