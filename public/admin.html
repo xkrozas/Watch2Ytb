@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel de Administración - WatchParty</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #0f0f0f; color: #fff; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; }
+
+    /* Login Box */
+    #login-screen { max-width: 380px; margin: 100px auto; background: #1a1a1a; padding: 30px; border-radius: 10px; text-align: center; }
+    #login-screen h2 { margin-bottom: 20px; }
+    input[type="password"] { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #333; background: #0f0f0f; color: white; margin-bottom: 15px; font-size: 14px; }
+
+    /* Dashboard */
+    #dashboard { display: none; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222; padding-bottom: 15px; margin-bottom: 20px; }
+    .stats-bar { display: flex; gap: 15px; margin-bottom: 25px; }
+    .stat-card { background: #1a1a1a; padding: 15px 20px; border-radius: 8px; flex: 1; border-left: 4px solid #ff0000; }
+    .stat-card .num { font-size: 24px; font-weight: bold; margin-top: 5px; }
+
+    table { width: 100%; border-collapse: collapse; background: #1a1a1a; border-radius: 8px; overflow: hidden; }
+    th, td { padding: 14px; text-align: left; border-bottom: 1px solid #282828; font-size: 14px; }
+    th { background: #222; color: #aaa; text-transform: uppercase; font-size: 12px; }
+
+    .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .badge-users { background: #1b5e20; color: #81c784; }
+    .badge-empty { background: #37474f; color: #90a4ae; }
+
+    button { background: #ff0000; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
+    button:hover { background: #cc0000; }
+    .btn-delete { background: #d32f2f; }
+    .btn-delete:hover { background: #b71c1c; }
+    .btn-view { background: #0288d1; text-decoration: none; display: inline-block; padding: 7px 12px; border-radius: 6px; color: white; font-weight: bold; font-size: 12px; margin-right: 6px; }
+
+    .empty-msg { text-align: center; padding: 40px; color: #666; font-size: 15px; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- PANTALLA DE LOGIN -->
+    <div id="login-screen">
+      <h2>🔒 Acceso Admin</h2>
+      <input type="password" id="admin-pass" placeholder="Introduce la contraseña...">
+      <button onclick="attemptLogin()" style="width: 100%;">Entrar al panel</button>
+      <p id="error-msg" style="color: #ff5252; font-size: 13px; margin-top: 10px; display: none;">Contraseña incorrecta</p>
+    </div>
+
+    <!-- PANEL PRINCIPAL -->
+    <div id="dashboard">
+      <header>
+        <h2>🛠️ Panel de Control de Salas</h2>
+        <button onclick="window.location.reload()" class="btn-delete" style="background: #333;">Cerrar sesión</button>
+      </header>
+
+      <div class="stats-bar">
+        <div class="stat-card">
+          <div>Salas Activas</div>
+          <div class="num" id="total-rooms">0</div>
+        </div>
+        <div class="stat-card">
+          <div>Usuarios Totales</div>
+          <div class="num" id="total-users">0</div>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ID de Sala</th>
+            <th>Personas</th>
+            <th>Vídeo Actual</th>
+            <th>En Cola</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="rooms-table-body">
+          <!-- Las salas se insertan aquí -->
+        </tbody>
+      </table>
+
+      <div id="no-rooms" class="empty-msg" style="display: none;">No hay salas creadas en este momento.</div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    let savedPassword = '';
+
+    function attemptLogin() {
+      const pass = document.getElementById('admin-pass').value;
+      savedPassword = pass;
+      socket.emit('admin-auth', pass);
+    }
+
+    document.getElementById('admin-pass').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') attemptLogin();
+    });
+
+    socket.on('admin-auth-success', () => {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+    });
+
+    socket.on('admin-auth-fail', () => {
+      document.getElementById('error-msg').style.display = 'block';
+    });
+
+    socket.on('admin-rooms-data', (rooms) => {
+      updateDashboard(rooms);
+    });
+
+    function updateDashboard(rooms) {
+      document.getElementById('total-rooms').innerText = rooms.length;
+      const totalUsers = rooms.reduce((acc, r) => acc + r.users, 0);
+      document.getElementById('total-users').innerText = totalUsers;
+
+      const tbody = document.getElementById('rooms-table-body');
+      tbody.innerHTML = '';
+
+      if (rooms.length === 0) {
+        document.getElementById('no-rooms').style.display = 'block';
+        return;
+      }
+      document.getElementById('no-rooms').style.display = 'none';
+
+      rooms.forEach((r) => {
+        const tr = document.createElement('tr');
+        const userBadgeClass = r.users > 0 ? 'badge-users' : 'badge-empty';
+
+        tr.innerHTML = `
+          <td><b>${r.id}</b></td>
+          <td><span class="badge ${userBadgeClass}">👤 ${r.users} conectado(s)</span></td>
+          <td>
+            <a href="https://youtube.com/watch?v=${r.videoId}" target="_blank" style="color: #4fc3f7;">
+              Ver vídeo (${r.videoId})
+            </a>
+            ${r.isPlaying ? '▶️' : '⏸️'}
+          </td>
+          <td>📑 ${r.queueCount} en lista</td>
+          <td>
+            <a href="/?room=${r.id}" target="_blank" class="btn-view">👁️ Entrar</a>
+            <button class="btn-delete" onclick="deleteRoom('${r.id}')">🗑️ Eliminar</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function deleteRoom(roomId) {
+      if (confirm(`¿Seguro que quieres eliminar la sala "${roomId}"? Se expulsará a todas las personas dentro.`)) {
+        socket.emit('admin-delete-room', { password: savedPassword, roomId: roomId });
+      }
+    }
+  </script>
+</body>
+</html>
