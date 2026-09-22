@@ -14,7 +14,7 @@ const io = new Server(server, {
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Estado de salas
+// Estado de cada sala
 const rooms = {};
 
 function getCurrentVideoTime(room) {
@@ -26,7 +26,7 @@ function getCurrentVideoTime(room) {
 function getAdminRoomsData() {
   const list = [];
   for (const roomId in rooms) {
-    const userNames = Object.values(rooms[roomId].users || {});
+    const userNames = Object.values(rooms[roomId].users || {}).map((u) => u.name);
     list.push({
       id: roomId,
       users: userNames.length,
@@ -43,14 +43,13 @@ function notifyAdmins() {
   io.to('admin-channel').emit('admin-rooms-data', getAdminRoomsData());
 }
 
-// Reloj maestro de sincronización (cada 4 segs)
+// Reloj maestro de sincronización cada 4 segundos
 setInterval(() => {
   for (const roomId in rooms) {
     const room = rooms[roomId];
     if (room && room.isPlaying) {
-      const liveTime = getCurrentVideoTime(room);
       io.to(roomId).emit('heartbeat-sync', {
-        currentTime: liveTime,
+        currentTime: getCurrentVideoTime(room),
         isPlaying: room.isPlaying,
         videoId: room.videoId
       });
@@ -58,76 +57,20 @@ setInterval(() => {
   }
 }, 4000);
 
-// --- BÚSQUEDA RÁPIDA Y LIMPIA DE VÍDEOS DEL CANAL (Sin bloqueos de Render) ---
-async function fetchChannelVideosFast(channelName, channelUrl) {
-  try {
-    // 1. Si la URL ya incluye directamente el ID oficial 'UC...'
-    if (channelUrl) {
-      const match = channelUrl.match(/UC[\w-]{22}/);
-      if (match) {
-        const uploadsId = 'UU' + match[0].slice(2);
-        try {
-          const playlist = await ytSearch({ listId: uploadsId });
-          if (playlist && playlist.videos && playlist.videos.length > 0) {
-            return playlist.videos.map((v) => ({
-              videoId: v.videoId,
-              title: v.title,
-              thumbnail: v.thumbnail,
-              duration: typeof v.duration === 'string' ? v.duration : (v.duration?.timestamp || ''),
-              author: playlist.author?.name || channelName,
-              views: v.views ? Number(v.views).toLocaleString() : '',
-              ago: ''
-            }));
-          }
-        } catch (e) {
-          // Si la lista directa falla, pasa al método nativo
-        }
-      }
-    }
-
-    // 2. Consulta rápida directa con ytSearch
-    const searchRes = await ytSearch(channelName);
-    const videos = searchRes.videos || [];
-
-    const cleanTarget = channelName.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const forbiddenClipWords = ['clips', 'momentos', 'twitch', 'reacciones', 'fans', 'cortos', 'shorts'];
-
-    // Filtramos para quedarnos con el creador y descartar canales de clips
-    const officialVideos = videos.filter((v) => {
-      const author = (v.author?.name || '').toLowerCase();
-      const cleanAuthor = author.replace(/[^a-z0-9]/g, '');
-
-      const matchesCreator = cleanAuthor.includes(cleanTarget) || cleanTarget.includes(cleanAuthor);
-      const isClipChannel = forbiddenClipWords.some((w) => author.includes(w) && !cleanTarget.includes(w));
-
-      return matchesCreator && !isClipChannel;
-    });
-
-    const listToReturn = officialVideos.length >= 3 ? officialVideos : videos;
-
-    return listToReturn.map((v) => ({
-      videoId: v.videoId,
-      title: v.title,
-      thumbnail: v.thumbnail,
-      duration: v.timestamp || '',
-      author: v.author?.name || channelName,
-      views: v.views ? Number(v.views).toLocaleString() : '',
-      ago: v.ago || ''
-    }));
-  } catch (err) {
-    console.error('Error obteniendo vídeos del canal:', err);
-    return [];
-  }
+// Extracción rápida de ID de YouTube si es enlace
+function extractYouTubeId(str) {
+  const match = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? match[1] : null;
 }
 
 io.on('connection', (socket) => {
   let currentRoom = null;
-  let currentUserName = 'Anónimo';
 
   socket.on('join-room', ({ roomId, username }) => {
     currentRoom = roomId;
-    currentUserName = (username && username.trim()) ? username.trim() : 'Invitado';
     socket.join(roomId);
+
+    const isFirstUser = !rooms[roomId] || Object.keys(rooms[roomId].users || {}).length === 0;
 
     if (!rooms[roomId]) {
       rooms[roomId] = {
@@ -141,11 +84,18 @@ io.on('connection', (socket) => {
       };
     }
 
-    rooms[roomId].users[socket.id] = currentUserName;
+    const cleanName = (username && username.trim()) ? username.trim() : `User-${socket.id.substring(0, 4).toUpperCase()}`;
 
+    rooms[roomId].users[socket.id] = {
+      name: cleanName,
+      isHost: isFirstUser
+    };
+
+    // Estado inicial de la sala
     socket.emit('sync-init', {
       ...rooms[roomId],
-      currentTime: getCurrentVideoTime(rooms[roomId])
+      currentTime: getCurrentVideoTime(rooms[roomId]),
+      isHost: isFirstUser
     });
 
     const activeUsers = Object.values(rooms[roomId].users);
@@ -153,106 +103,87 @@ io.on('connection', (socket) => {
     notifyAdmins();
   });
 
-  socket.on('request-sync', () => {
-    if (!currentRoom || !rooms[currentRoom]) return;
-    const room = rooms[currentRoom];
-    socket.emit('heartbeat-sync', {
-      currentTime: getCurrentVideoTime(room),
-      isPlaying: room.isPlaying,
-      videoId: room.videoId,
-      force: true
-    });
-  });
+  // --- BUSCADOR BLINDADO ULTRA-RÁPIDO ---
+  socket.on('search-videos', async ({ query }) => {
+    const q = (query || '').trim();
+    if (!q) return socket.emit('search-results', []);
 
-  // Búsqueda general
-  socket.on('search-videos', async (data) => {
-    const query = (typeof data === 'string' ? data : (data?.query || '')).trim();
-    const page = typeof data === 'object' && data?.page ? data.page : 1;
-
-    if (!query) {
-      return socket.emit('search-results', { isPlaylist: false, videos: [], channels: [], page, hasMore: false });
+    // 1. Si pegan directamente una URL de YouTube
+    const directId = extractYouTubeId(q);
+    if (directId) {
+      try {
+        const vidInfo = await ytSearch({ videoId: directId });
+        return socket.emit('search-results', [{
+          videoId: directId,
+          title: vidInfo.title || 'Vídeo de YouTube',
+          thumbnail: vidInfo.thumbnail || `https://i.ytimg.com/vi/${directId}/hqdefault.jpg`,
+          duration: vidInfo.timestamp || 'Vídeo',
+          author: vidInfo.author ? vidInfo.author.name : 'YouTube'
+        }]);
+      } catch (e) {
+        return socket.emit('search-results', [{
+          videoId: directId,
+          title: 'Vídeo de YouTube',
+          thumbnail: `https://i.ytimg.com/vi/${directId}/hqdefault.jpg`,
+          duration: 'Vídeo',
+          author: 'YouTube'
+        }]);
+      }
     }
 
-    try {
-      const listMatch = query.match(/[?&]list=([^#&?]+)/);
-      if (listMatch) {
-        const listId = listMatch[1];
-        const playlistData = await ytSearch({ listId });
-        const videos = (playlistData.videos || []).map((v) => ({
+    // 2. Si es una lista de reproducción
+    const listMatch = q.match(/[?&]list=([^#&?]+)/);
+    if (listMatch) {
+      try {
+        const playlistData = await ytSearch({ listId: listMatch[1] });
+        const videos = (playlistData.videos || []).slice(0, 30).map((v) => ({
           videoId: v.videoId,
           title: v.title,
           thumbnail: v.thumbnail,
           duration: typeof v.duration === 'string' ? v.duration : (v.duration?.timestamp || ''),
-          author: playlistData.author ? playlistData.author.name : (playlistData.title || '')
+          author: playlistData.author ? playlistData.author.name : 'Playlist'
         }));
-        return socket.emit('search-results', {
-          isPlaylist: true,
-          playlistTitle: playlistData.title || 'Lista de reproducción',
-          videos,
-          channels: [],
-          page: 1,
-          hasMore: false
-        });
-      }
+        return socket.emit('search-results', videos);
+      } catch (e) {}
+    }
 
-      let searchQuery = query;
-      if (page === 2) searchQuery = `${query} video`;
-      else if (page === 3) searchQuery = `${query} videos`;
-      else if (page > 3) searchQuery = `${query} playlist`;
+    // 3. Búsqueda normal por palabras clave con límite estricto de 4 segundos
+    try {
+      const searchPromise = ytSearch(q);
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 4000));
+      const searchResults = await Promise.race([searchPromise, timeoutPromise]);
 
-      const searchResults = await ytSearch(searchQuery);
-
-      const videos = (searchResults.videos || []).map((v) => ({
+      const videos = (searchResults.videos || []).slice(0, 20).map((v) => ({
         videoId: v.videoId,
         title: v.title,
         thumbnail: v.thumbnail,
         duration: v.timestamp || '',
-        author: v.author ? v.author.name : '',
-        authorUrl: v.author ? (v.author.url || '') : '',
-        views: v.views ? Number(v.views).toLocaleString() : '',
-        ago: v.ago || ''
+        author: v.author ? v.author.name : 'YouTube'
       }));
 
-      const channels = (page === 1 ? (searchResults.channels || searchResults.accounts || []) : []).slice(0, 3).map((c) => ({
-        name: c.name,
-        url: c.url || '',
-        avatar: c.image || c.avatar || '',
-        subCount: c.subCountLabel || c.subscribers || '',
-        videoCount: c.videoCount || ''
-      }));
-
-      socket.emit('search-results', {
-        isPlaylist: false,
-        videos,
-        channels,
-        page,
-        hasMore: videos.length >= 10
-      });
+      socket.emit('search-results', videos);
     } catch (err) {
-      console.error('Error buscando:', err);
-      socket.emit('search-results', { isPlaylist: false, videos: [], channels: [], page, hasMore: false });
+      console.warn('Error o tiempo agotado en búsqueda:', err.message);
+      socket.emit('search-results', []);
     }
   });
 
-  // Exploración de canal instantánea
-  socket.on('get-channel-videos', async (data) => {
-    const channelName = typeof data === 'string' ? data : (data?.channelName || '');
-    const channelUrl = typeof data === 'object' ? (data?.channelUrl || '') : '';
+  // --- CHAT EN TIEMPO REAL ---
+  socket.on('send-chat', (text) => {
+    if (!currentRoom || !rooms[currentRoom] || !text.trim()) return;
+    const user = rooms[currentRoom].users[socket.id] || { name: 'Invitado', isHost: false };
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-    if (!channelName) {
-      return socket.emit('channel-videos-result', { channelName: '', videos: [] });
-    }
-
-    try {
-      const videos = await fetchChannelVideosFast(channelName, channelUrl);
-      socket.emit('channel-videos-result', { channelName, videos });
-    } catch (err) {
-      console.error('Error cargando canal:', err);
-      socket.emit('channel-videos-result', { channelName, videos: [] });
-    }
+    io.to(currentRoom).emit('new-chat-message', {
+      user: user.name,
+      isHost: user.isHost,
+      text: text.trim().substring(0, 300),
+      time: timeStr
+    });
   });
 
-  // Controles de sala
+  // Controles de vídeo
   socket.on('change-video', (video) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     const videoId = typeof video === 'string' ? video : video.videoId;
@@ -267,13 +198,6 @@ io.on('connection', (socket) => {
   socket.on('add-to-queue', (video) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     rooms[currentRoom].playlist.push(video);
-    io.to(currentRoom).emit('queue-updated', rooms[currentRoom].playlist);
-    notifyAdmins();
-  });
-
-  socket.on('add-multiple-to-queue', (videoList) => {
-    if (!currentRoom || !rooms[currentRoom] || !Array.isArray(videoList)) return;
-    rooms[currentRoom].playlist.push(...videoList);
     io.to(currentRoom).emit('queue-updated', rooms[currentRoom].playlist);
     notifyAdmins();
   });
@@ -327,6 +251,17 @@ io.on('connection', (socket) => {
     rooms[currentRoom].currentTime = time;
     rooms[currentRoom].lastUpdated = Date.now();
     socket.to(currentRoom).emit('seek', time);
+  });
+
+  socket.on('request-sync', () => {
+    if (!currentRoom || !rooms[currentRoom]) return;
+    const room = rooms[currentRoom];
+    socket.emit('heartbeat-sync', {
+      currentTime: getCurrentVideoTime(room),
+      isPlaying: room.isPlaying,
+      videoId: room.videoId,
+      force: true
+    });
   });
 
   // Admin
