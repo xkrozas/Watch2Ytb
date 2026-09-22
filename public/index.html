@@ -70,7 +70,7 @@
     .channel-header-box .name { font-size: 14px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .channel-header-box .subs { font-size: 11px; color: #aaa; }
 
-    /* Barra superior dentro del canal */
+    /* Barra de navegación de canal */
     .channel-nav-bar { display: none; flex-direction: column; gap: 8px; background: #222; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
     .channel-nav-top { display: flex; align-items: center; gap: 8px; }
     .channel-nav-top span { font-size: 13px; font-weight: bold; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -97,7 +97,7 @@
     .user-dot { width: 10px; height: 10px; background: #4caf50; border-radius: 50%; display: inline-block; }
     .you-tag { font-size: 11px; background: #ff0000; padding: 2px 6px; border-radius: 4px; margin-left: auto; }
 
-    .empty-state { text-align: center; color: #777; margin-top: 40px; font-size: 13px; }
+    .empty-state { text-align: center; color: #777; margin-top: 40px; font-size: 13px; line-height: 1.5; }
     .playlist-banner { background: #1b3a4b; border: 1px solid #0077b6; padding: 10px; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
   </style>
 </head>
@@ -147,7 +147,6 @@
           <button id="search-btn">Buscar</button>
         </div>
 
-        <!-- Barra de navegación cuando se entra al canal -->
         <div id="channel-nav" class="channel-nav-bar">
           <div class="channel-nav-top">
             <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exitChannelView()">⬅ Volver</button>
@@ -156,7 +155,6 @@
           <input type="text" id="channel-filter-input" class="channel-filter-input" placeholder="🔍 Filtrar entre los vídeos de este canal...">
         </div>
 
-        <!-- Contenedor con scroll infinito -->
         <div class="item-list" id="search-results">
           <div class="empty-state">Busca un YouTuber, una canción o pega un enlace.</div>
         </div>
@@ -188,20 +186,23 @@
     let lastReportedTime = 0;
     let isJoined = false;
 
-    // Memoria para paginación y exploración de canales
+    // Memoria para paginación y búsqueda
     let currentSearchQuery = '';
     let currentSearchPage = 1;
     let isLoadingMore = false;
     let canLoadMore = false;
     let isInsideChannel = false;
+    let currentChannelName = '';
     let currentChannelVideos = [];
     let knownVideoIds = new Set();
     let lastSearchResultsHTML = null;
+    let searchTimeoutTimer = null;
 
     const modalTitle = document.getElementById('modal-title');
     const modalDesc = document.getElementById('modal-desc');
     const enterBtn = document.getElementById('enter-btn');
     const usernameInput = document.getElementById('username-input');
+    const searchResultsContainer = document.getElementById('search-results');
 
     if (myUsername) usernameInput.value = myUsername;
 
@@ -251,20 +252,66 @@
       remoteTimeout = setTimeout(() => { isRemoteAction = false; }, duration);
     }
 
-    // --- CONEXIÓN SOCKET Y ROBUSTEZ ---
+    // --- TEMPORIZADOR DE SEGURIDAD (ANTI-BLOQUEOS) ---
+    function startSearchTimeout() {
+      clearTimeout(searchTimeoutTimer);
+      searchTimeoutTimer = setTimeout(() => {
+        isLoadingMore = false;
+        const loader = document.getElementById('loading-more-msg');
+        if (loader) loader.remove();
+
+        if (searchResultsContainer.innerHTML.includes('Buscando') || searchResultsContainer.innerHTML.includes('Descargando')) {
+          searchResultsContainer.innerHTML = `
+            <div class="empty-state">
+              ⚠️ La búsqueda tardó demasiado o se interrumpió la conexión.<br><br>
+              <button class="btn-secondary" style="padding: 6px 12px;" onclick="retryLastSearch()">🔄 Reintentar búsqueda</button>
+            </div>
+          `;
+        }
+      }, 7500); // 7.5 segundos máximo
+    }
+
+    function clearSearchTimeout() {
+      clearTimeout(searchTimeoutTimer);
+    }
+
+    function retryLastSearch() {
+      if (isInsideChannel && currentChannelName) {
+        browseChannel(currentChannelName);
+      } else if (currentSearchQuery) {
+        startNewSearch();
+      }
+    }
+
+    // --- GESTIÓN DE CONEXIÓN CON REINICIO DE ESTADOS ---
     const statusBadge = document.getElementById('status-badge');
 
     socket.on('connect', () => {
       statusBadge.className = 'status-badge status-connected';
       statusBadge.innerText = '🟢 Conectado';
+
+      // 🛡️ REINICIAR ESTADOS DE BÚSQUEDA TRAS RECONEXIÓN
+      isLoadingMore = false;
+      const loader = document.getElementById('loading-more-msg');
+      if (loader) loader.remove();
+
       if (isJoined) {
         socket.emit('join-room', { roomId, username: myUsername });
+      }
+
+      // Si se quedó congelado en medio de una búsqueda interrumpida:
+      if (searchResultsContainer.innerHTML.includes('Buscando') && currentSearchQuery) {
+        socket.emit('search-videos', { query: currentSearchQuery, page: currentSearchPage });
+      } else if (searchResultsContainer.innerHTML.includes('Descargando') && currentChannelName) {
+        socket.emit('get-channel-videos', { channelName: currentChannelName });
       }
     });
 
     socket.on('disconnect', () => {
       statusBadge.className = 'status-badge status-disconnected';
       statusBadge.innerText = '🔴 Desconectado';
+      isLoadingMore = false;
+      clearSearchTimeout();
     });
 
     socket.on('reconnecting', () => {
@@ -411,9 +458,7 @@
       setTimeout(() => { btn.innerText = '🔄 Sincronizar'; }, 1500);
     });
 
-    // --- BÚSQUEDA Y SCROLL INFINITO ---
-    const searchResultsContainer = document.getElementById('search-results');
-
+    // --- BÚSQUEDA Y SCROLL ---
     document.getElementById('search-btn').addEventListener('click', startNewSearch);
     document.getElementById('search-input').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') startNewSearch();
@@ -431,10 +476,10 @@
       canLoadMore = false;
 
       searchResultsContainer.innerHTML = '<div class="empty-state">Buscando vídeos y canales...</div>';
+      startSearchTimeout();
       socket.emit('search-videos', { query: q, page: 1 });
     }
 
-    // Scroll infinito en la caja de resultados
     searchResultsContainer.addEventListener('scroll', () => {
       if (isInsideChannel) return;
       if (searchResultsContainer.scrollTop + searchResultsContainer.clientHeight >= searchResultsContainer.scrollHeight - 60) {
@@ -454,10 +499,12 @@
       loader.innerText = 'Cargando más vídeos...';
       searchResultsContainer.appendChild(loader);
 
+      startSearchTimeout();
       socket.emit('search-videos', { query: currentSearchQuery, page: currentSearchPage });
     }
 
     socket.on('search-results', ({ isPlaylist, playlistTitle, videos, channels, page, hasMore }) => {
+      clearSearchTimeout();
       isLoadingMore = false;
       canLoadMore = hasMore;
 
@@ -471,7 +518,6 @@
         searchResultsContainer.innerHTML = '';
       }
 
-      // Banner de Playlist
       if (isPlaylist && videos.length > 0) {
         const banner = document.createElement('div');
         banner.className = 'playlist-banner';
@@ -490,7 +536,6 @@
         });
       }
 
-      // Canales encontrados (solo en la primera página)
       if (page === 1 && channels && channels.length > 0) {
         channels.forEach((c) => {
           const card = document.createElement('div');
@@ -507,7 +552,6 @@
         });
       }
 
-      // Añadir vídeos sin repetir
       let addedCount = 0;
       videos.forEach((v) => {
         if (!knownVideoIds.has(v.videoId)) {
@@ -522,7 +566,6 @@
         return;
       }
 
-      // Botón manual de respaldo para cargar más
       if (hasMore) {
         const btn = document.createElement('button');
         btn.id = 'btn-manual-load-more';
@@ -532,7 +575,8 @@
         searchResultsContainer.appendChild(btn);
       }
 
-      if (!isInsideChannel) {
+      // Solo guardamos en memoria si hay vídeos reales cargados
+      if (!isInsideChannel && searchResultsContainer.querySelector('.video-card')) {
         lastSearchResultsHTML = searchResultsContainer.innerHTML;
       }
     });
@@ -563,22 +607,25 @@
       return div;
     }
 
-    // --- EXPLORACIÓN DE CANALES OFICIALES (HASTA 100 VÍDEOS) ---
+    // --- EXPLORACIÓN DE CANALES ---
     function browseChannel(channelName, channelUrl = '') {
-      if (!isInsideChannel && searchResultsContainer.innerHTML) {
+      if (!isInsideChannel && searchResultsContainer.querySelector('.video-card')) {
         lastSearchResultsHTML = searchResultsContainer.innerHTML;
       }
 
       isInsideChannel = true;
+      currentChannelName = channelName;
       document.getElementById('channel-nav').style.display = 'flex';
       document.getElementById('channel-nav-title').innerText = `📺 Canal Oficial: ${channelName}`;
       document.getElementById('channel-filter-input').value = '';
       searchResultsContainer.innerHTML = `<div class="empty-state">Descargando catálogo oficial de <b>${channelName}</b>...</div>`;
 
+      startSearchTimeout();
       socket.emit('get-channel-videos', { channelName, channelUrl });
     }
 
     socket.on('channel-videos-result', ({ channelName, videos }) => {
+      clearSearchTimeout();
       currentChannelVideos = videos || [];
       renderChannelVideos(currentChannelVideos);
     });
@@ -601,7 +648,6 @@
       });
     }
 
-    // Buscador interactivo en vivo dentro del canal
     document.getElementById('channel-filter-input').addEventListener('input', (e) => {
       const term = e.target.value.toLowerCase().trim();
       if (!term) {
@@ -615,9 +661,14 @@
 
     function exitChannelView() {
       isInsideChannel = false;
+      currentChannelName = '';
+      clearSearchTimeout();
       document.getElementById('channel-nav').style.display = 'none';
+
       if (lastSearchResultsHTML) {
         searchResultsContainer.innerHTML = lastSearchResultsHTML;
+      } else {
+        searchResultsContainer.innerHTML = '<div class="empty-state">Busca un YouTuber, una canción o pega un enlace.</div>';
       }
     }
 
