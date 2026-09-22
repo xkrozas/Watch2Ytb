@@ -5,6 +5,8 @@
   <title>WatchParty - Explorador Avanzado</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/socket.io/socket.io.js"></script>
+  <!-- Precargamos la API de YouTube desde el inicio para evitar carreras de carga -->
+  <script src="https://www.youtube.com/iframe_api"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: #0f0f0f; color: #fff; padding: 15px; }
@@ -180,11 +182,17 @@
     let myUsername = localStorage.getItem('wp_username') || '';
 
     const socket = io();
-    let player;
+
+    // ESTADO DEL REPRODUCTOR Y CONTROL DE SEGURIDAD
+    let player = null;
+    let isPlayerReady = false;
+    let isYTReady = false;
+    let isJoined = false;
+    let pendingVideoLoad = null; // Cola de espera si la orden llega antes de que el player esté listo
+
     let isRemoteAction = false;
     let remoteTimeout;
     let lastReportedTime = 0;
-    let isJoined = false;
 
     // Memoria para paginación y búsqueda
     let currentSearchQuery = '';
@@ -240,7 +248,6 @@
       document.getElementById('join-modal-overlay').style.display = 'none';
       isJoined = true;
 
-      initYouTube();
       if (socket.connected) {
         socket.emit('join-room', { roomId, username: myUsername });
       }
@@ -250,6 +257,82 @@
       isRemoteAction = true;
       clearTimeout(remoteTimeout);
       remoteTimeout = setTimeout(() => { isRemoteAction = false; }, duration);
+    }
+
+    // --- REPRODUCTOR SEGURO ANTI-CRASH ---
+    window.onYouTubeIframeAPIReady = function() {
+      isYTReady = true;
+      // Si la orden de inicialización llegó antes que la librería de YouTube:
+      if (pendingVideoLoad && !player) {
+        createPlayerInstance(pendingVideoLoad.videoId, pendingVideoLoad.currentTime, pendingVideoLoad.isPlaying);
+      }
+    };
+
+    function createPlayerInstance(videoId, startTime = 0, autoPlay = false) {
+      if (!isYTReady || typeof YT === 'undefined' || !YT.Player) {
+        pendingVideoLoad = { videoId, currentTime: startTime, isPlaying: autoPlay };
+        return;
+      }
+
+      player = new YT.Player('player', {
+        videoId: videoId,
+        playerVars: {
+          'autoplay': autoPlay ? 1 : 0,
+          'start': Math.floor(startTime),
+          'playsinline': 1,
+          'enablejsapi': 1
+        },
+        events: {
+          'onReady': onPlayerReady,
+          'onStateChange': onPlayerStateChange
+        }
+      });
+    }
+
+    function onPlayerReady(event) {
+      isPlayerReady = true;
+      // Si había un cambio de vídeo pendiente mientras se creaba el iframe:
+      if (pendingVideoLoad) {
+        safeLoadVideo(pendingVideoLoad.videoId, pendingVideoLoad.currentTime, pendingVideoLoad.isPlaying);
+        pendingVideoLoad = null;
+      }
+    }
+
+    // Funciones que NUNCA fallan aunque el reproductor esté cargando
+    function safeLoadVideo(videoId, startTime = 0, shouldPlay = true) {
+      if (isPlayerReady && player && typeof player.loadVideoById === 'function') {
+        setRemoteAction(2000);
+        player.loadVideoById({
+          videoId: videoId,
+          startSeconds: Math.floor(startTime || 0)
+        });
+        if (!shouldPlay && typeof player.pauseVideo === 'function') {
+          player.pauseVideo();
+        }
+      } else {
+        pendingVideoLoad = { videoId, currentTime: startTime, isPlaying: shouldPlay };
+      }
+    }
+
+    function safePlay() {
+      if (isPlayerReady && player && typeof player.playVideo === 'function') {
+        setRemoteAction(1200);
+        player.playVideo();
+      }
+    }
+
+    function safePause() {
+      if (isPlayerReady && player && typeof player.pauseVideo === 'function') {
+        setRemoteAction(1200);
+        player.pauseVideo();
+      }
+    }
+
+    function safeSeek(time) {
+      if (isPlayerReady && player && typeof player.seekTo === 'function') {
+        setRemoteAction(1200);
+        player.seekTo(time, true);
+      }
     }
 
     // --- TEMPORIZADOR DE SEGURIDAD (ANTI-BLOQUEOS) ---
@@ -268,7 +351,7 @@
             </div>
           `;
         }
-      }, 7500); // 7.5 segundos máximo
+      }, 7500);
     }
 
     function clearSearchTimeout() {
@@ -283,14 +366,13 @@
       }
     }
 
-    // --- GESTIÓN DE CONEXIÓN CON REINICIO DE ESTADOS ---
+    // --- CONEXIÓN SOCKET Y RECONEXIÓN ---
     const statusBadge = document.getElementById('status-badge');
 
     socket.on('connect', () => {
       statusBadge.className = 'status-badge status-connected';
       statusBadge.innerText = '🟢 Conectado';
 
-      // 🛡️ REINICIAR ESTADOS DE BÚSQUEDA TRAS RECONEXIÓN
       isLoadingMore = false;
       const loader = document.getElementById('loading-more-msg');
       if (loader) loader.remove();
@@ -299,7 +381,6 @@
         socket.emit('join-room', { roomId, username: myUsername });
       }
 
-      // Si se quedó congelado en medio de una búsqueda interrumpida:
       if (searchResultsContainer.innerHTML.includes('Buscando') && currentSearchQuery) {
         socket.emit('search-videos', { query: currentSearchQuery, page: currentSearchPage });
       } else if (searchResultsContainer.innerHTML.includes('Descargando') && currentChannelName) {
@@ -342,60 +423,39 @@
       });
     });
 
-    function initYouTube() {
-      if (window.YT) return;
-      const tag = document.createElement('script');
-      tag.src = "https://www.youtube.com/iframe_api";
-      document.body.appendChild(tag);
-    }
-
-    function onYouTubeIframeAPIReady() {
-      if (isJoined && socket.connected) {
-        socket.emit('join-room', { roomId, username: myUsername });
-      }
-    }
-
+    // Sincronización Inicial recibida del Servidor
     socket.on('sync-init', (data) => {
       if (!player) {
-        player = new YT.Player('player', {
-          videoId: data.videoId,
-          playerVars: { 
-            'autoplay': data.isPlaying ? 1 : 0, 
-            'start': Math.floor(data.currentTime),
-            'playsinline': 1 
-          },
-          events: { 'onStateChange': onPlayerStateChange }
-        });
+        createPlayerInstance(data.videoId, data.currentTime, data.isPlaying);
       } else {
-        setRemoteAction(2000);
-        player.loadVideoById(data.videoId, data.currentTime);
-        if (!data.isPlaying) player.pauseVideo();
+        safeLoadVideo(data.videoId, data.currentTime, data.isPlaying);
       }
       renderQueue(data.playlist || []);
     });
 
     socket.on('heartbeat-sync', (data) => {
-      if (!player || !player.getCurrentTime || isRemoteAction) return;
+      if (!isPlayerReady || !player || typeof player.getCurrentTime !== 'function' || isRemoteAction) return;
       const localTime = player.getCurrentTime();
       const drift = Math.abs(localTime - data.currentTime);
 
       if (drift > 2.5 || data.force) {
-        setRemoteAction(1200);
-        player.seekTo(data.currentTime, true);
+        safeSeek(data.currentTime);
       }
 
-      const state = player.getPlayerState();
-      if (data.isPlaying && state !== YT.PlayerState.PLAYING && state !== YT.PlayerState.BUFFERING) {
-        setRemoteAction(1200);
-        player.playVideo();
-      } else if (!data.isPlaying && state === YT.PlayerState.PLAYING) {
-        setRemoteAction(1200);
-        player.pauseVideo();
+      if (typeof player.getPlayerState === 'function') {
+        const state = player.getPlayerState();
+        if (data.isPlaying && state !== YT.PlayerState.PLAYING && state !== YT.PlayerState.BUFFERING) {
+          safePlay();
+        } else if (!data.isPlaying && state === YT.PlayerState.PLAYING) {
+          safePause();
+        }
       }
     });
 
     function onPlayerStateChange(event) {
       if (isRemoteAction) return;
+      if (!isPlayerReady || !player || typeof player.getCurrentTime !== 'function') return;
+
       const currentTime = player.getCurrentTime();
 
       if (event.data === YT.PlayerState.PLAYING) {
@@ -408,7 +468,7 @@
     }
 
     setInterval(() => {
-      if (!player || !player.getCurrentTime || isRemoteAction) return;
+      if (!isPlayerReady || !player || typeof player.getCurrentTime !== 'function' || isRemoteAction) return;
       const current = player.getCurrentTime();
       if (Math.abs(current - lastReportedTime) > 2.5 && player.getPlayerState() === YT.PlayerState.PLAYING) {
         socket.emit('seek', current);
@@ -422,26 +482,27 @@
       }
     });
 
+    // Control remoto vía sockets
     socket.on('play', (time) => {
-      setRemoteAction(1200);
-      if (time && Math.abs(player.getCurrentTime() - time) > 1.5) player.seekTo(time, true);
-      player.playVideo();
+      if (time && isPlayerReady && player && typeof player.getCurrentTime === 'function') {
+        if (Math.abs(player.getCurrentTime() - time) > 1.5) safeSeek(time);
+      }
+      safePlay();
     });
 
     socket.on('pause', (time) => {
-      setRemoteAction(1200);
-      player.pauseVideo();
-      if (time && Math.abs(player.getCurrentTime() - time) > 2) player.seekTo(time, true);
+      safePause();
+      if (time && isPlayerReady && player && typeof player.getCurrentTime === 'function') {
+        if (Math.abs(player.getCurrentTime() - time) > 2) safeSeek(time);
+      }
     });
 
     socket.on('seek', (time) => {
-      setRemoteAction(1200);
-      player.seekTo(time, true);
+      safeSeek(time);
     });
 
     socket.on('video-changed', (videoId) => {
-      setRemoteAction(2000);
-      player.loadVideoById(videoId);
+      safeLoadVideo(videoId, 0, true);
     });
 
     socket.on('queue-updated', (queue) => { renderQueue(queue); });
@@ -575,7 +636,6 @@
         searchResultsContainer.appendChild(btn);
       }
 
-      // Solo guardamos en memoria si hay vídeos reales cargados
       if (!isInsideChannel && searchResultsContainer.querySelector('.video-card')) {
         lastSearchResultsHTML = searchResultsContainer.innerHTML;
       }
