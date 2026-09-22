@@ -43,7 +43,7 @@ function notifyAdmins() {
   io.to('admin-channel').emit('admin-rooms-data', getAdminRoomsData());
 }
 
-// Reloj maestro de sincronización periódica
+// Reloj maestro de sincronización (cada 4 segs)
 setInterval(() => {
   for (const roomId in rooms) {
     const room = rooms[roomId];
@@ -75,20 +75,17 @@ io.on('connection', (socket) => {
         playlist: [],
         lastUpdated: Date.now(),
         lastTrackChange: 0,
-        users: {} // socket.id -> Nombre de usuario
+        users: {}
       };
     }
 
-    // Registrar usuario en la sala
     rooms[roomId].users[socket.id] = currentUserName;
 
-    // Enviar estado de sala inicial al que entra
     socket.emit('sync-init', {
       ...rooms[roomId],
       currentTime: getCurrentVideoTime(rooms[roomId])
     });
 
-    // Enviar lista actualizada de usuarios a todos en la sala
     const activeUsers = Object.values(rooms[roomId].users);
     io.to(roomId).emit('room-users-list', activeUsers);
     notifyAdmins();
@@ -105,22 +102,87 @@ io.on('connection', (socket) => {
     });
   });
 
+  // --- BÚSQUEDA AVANZADA (Vídeos, Canales y Listas) ---
   socket.on('search-videos', async (query) => {
     try {
+      // 1. Detectar si es un enlace de lista de reproducción (Playlist)
+      const listMatch = query.match(/[?&]list=([^#&?]+)/);
+      if (listMatch) {
+        const listId = listMatch[1];
+        const playlistData = await ytSearch({ listId });
+        const videos = (playlistData.videos || []).map((v) => ({
+          videoId: v.videoId,
+          title: v.title,
+          thumbnail: v.thumbnail,
+          duration: typeof v.duration === 'string' ? v.duration : (v.duration?.timestamp || ''),
+          author: playlistData.author ? playlistData.author.name : (playlistData.title || '')
+        }));
+        return socket.emit('search-results', {
+          isPlaylist: true,
+          playlistTitle: playlistData.title || 'Lista de reproducción',
+          videos,
+          channels: []
+        });
+      }
+
+      // 2. Búsqueda normal por palabras clave
       const searchResults = await ytSearch(query);
-      const videos = (searchResults.videos || []).slice(0, 10).map((v) => ({
+      const videos = (searchResults.videos || []).slice(0, 20).map((v) => ({
         videoId: v.videoId,
         title: v.title,
         thumbnail: v.thumbnail,
-        duration: v.timestamp,
-        author: v.author ? v.author.name : ''
+        duration: v.timestamp || '',
+        author: v.author ? v.author.name : '',
+        views: v.views ? Number(v.views).toLocaleString() : '',
+        ago: v.ago || ''
       }));
-      socket.emit('search-results', videos);
+
+      const channels = (searchResults.channels || searchResults.accounts || []).slice(0, 3).map((c) => ({
+        name: c.name,
+        avatar: c.image || c.avatar || '',
+        subCount: c.subCountLabel || c.subscribers || '',
+        videoCount: c.videoCount || ''
+      }));
+
+      socket.emit('search-results', { isPlaylist: false, videos, channels });
     } catch (err) {
-      socket.emit('search-results', []);
+      console.error('Error buscando:', err);
+      socket.emit('search-results', { isPlaylist: false, videos: [], channels: [] });
     }
   });
 
+  // --- OBTENER VÍDEOS DE UN CANAL EN CONCRETO ---
+  socket.on('get-channel-videos', async (channelName) => {
+    try {
+      const searchResults = await ytSearch(channelName);
+      const allVideos = searchResults.videos || [];
+
+      // Priorizar los vídeos subidos por este canal en específico
+      const matchingVideos = allVideos.filter((v) =>
+        v.author && v.author.name && v.author.name.toLowerCase() === channelName.toLowerCase()
+      );
+
+      const results = matchingVideos.length >= 4 ? matchingVideos : allVideos;
+      const videos = results.slice(0, 25).map((v) => ({
+        videoId: v.videoId,
+        title: v.title,
+        thumbnail: v.thumbnail,
+        duration: v.timestamp || '',
+        author: v.author ? v.author.name : channelName,
+        views: v.views ? Number(v.views).toLocaleString() : '',
+        ago: v.ago || ''
+      }));
+
+      socket.emit('channel-videos-result', {
+        channelName,
+        videos
+      });
+    } catch (err) {
+      socket.emit('channel-videos-result', { channelName, videos: [] });
+    }
+  });
+
+  // Controles de sala
   socket.on('change-video', (video) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     const videoId = typeof video === 'string' ? video : video.videoId;
@@ -135,6 +197,14 @@ io.on('connection', (socket) => {
   socket.on('add-to-queue', (video) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     rooms[currentRoom].playlist.push(video);
+    io.to(currentRoom).emit('queue-updated', rooms[currentRoom].playlist);
+    notifyAdmins();
+  });
+
+  // Añadir múltiples vídeos de golpe (para listas completas)
+  socket.on('add-multiple-to-queue', (videoList) => {
+    if (!currentRoom || !rooms[currentRoom] || !Array.isArray(videoList)) return;
+    rooms[currentRoom].playlist.push(...videoList);
     io.to(currentRoom).emit('queue-updated', rooms[currentRoom].playlist);
     notifyAdmins();
   });
