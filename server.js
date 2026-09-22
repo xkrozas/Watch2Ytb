@@ -58,6 +58,97 @@ setInterval(() => {
   }
 }, 4000);
 
+// --- FUNCIÓN MAESTRA: Obtener los vídeos 100% oficiales de un canal ---
+async function fetchOfficialChannelVideos(channelName, channelUrl) {
+  let channelId = null;
+
+  try {
+    // 1. Si la URL ya incluye directamente el ID de canal 'UC...'
+    if (channelUrl) {
+      const directMatch = channelUrl.match(/UC[\w-]{22}/);
+      if (directMatch) channelId = directMatch[0];
+    }
+
+    // 2. Si no lo tiene, consultamos la página web del canal para extraer el channelId
+    if (!channelId) {
+      let targetUrl = channelUrl;
+      if (!targetUrl || !targetUrl.startsWith('http')) {
+        if (targetUrl && targetUrl.startsWith('/')) {
+          targetUrl = 'https://www.youtube.com' + targetUrl;
+        } else if (channelName.startsWith('@')) {
+          targetUrl = `https://www.youtube.com/${channelName}`;
+        } else {
+          const search = await ytSearch(channelName);
+          const firstChan = (search.channels || [])[0];
+          if (firstChan && firstChan.url) {
+            targetUrl = firstChan.url.startsWith('http') ? firstChan.url : 'https://www.youtube.com' + firstChan.url;
+          } else {
+            targetUrl = `https://www.youtube.com/@${channelName.replace(/\s+/g, '')}`;
+          }
+        }
+      }
+
+      if (targetUrl) {
+        const res = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+          }
+        });
+        const html = await res.text();
+        const match = html.match(/"channelId":"(UC[\w-]{22})"/);
+        if (match) channelId = match[1];
+        else {
+          const matchMeta = html.match(/<meta itemprop="channelId" content="(UC[\w-]{22})">/);
+          if (matchMeta) channelId = matchMeta[1];
+        }
+      }
+    }
+
+    // 3. Convertimos 'UC...' a 'UU...' (la lista oficial de subidas del canal de YouTube)
+    if (channelId && channelId.startsWith('UC')) {
+      const uploadsPlaylistId = 'UU' + channelId.slice(2);
+      const playlistData = await ytSearch({ listId: uploadsPlaylistId });
+
+      if (playlistData && playlistData.videos && playlistData.videos.length > 0) {
+        return playlistData.videos.map((v) => ({
+          videoId: v.videoId,
+          title: v.title,
+          thumbnail: v.thumbnail,
+          duration: typeof v.duration === 'string' ? v.duration : (v.duration?.timestamp || ''),
+          author: playlistData.author?.name || channelName,
+          views: v.views ? Number(v.views).toLocaleString() : '',
+          ago: ''
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn('Fallo al obtener la lista UU del canal, recurriendo a búsqueda estricta:', err.message);
+  }
+
+  // 4. Modo de respaldo: búsqueda estricta donde solo se aceptan coincidencias exactas del autor
+  try {
+    const searchRes = await ytSearch(`"${channelName}"`);
+    const cleanTarget = channelName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const strictlyFiltered = (searchRes.videos || []).filter((v) => {
+      const cleanAuthor = (v.author?.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cleanAuthor.includes(cleanTarget) || cleanTarget.includes(cleanAuthor);
+    });
+
+    return strictlyFiltered.map((v) => ({
+      videoId: v.videoId,
+      title: v.title,
+      thumbnail: v.thumbnail,
+      duration: v.timestamp || '',
+      author: v.author?.name || channelName,
+      views: v.views ? Number(v.views).toLocaleString() : '',
+      ago: v.ago || ''
+    }));
+  } catch (e) {
+    return [];
+  }
+}
+
 io.on('connection', (socket) => {
   let currentRoom = null;
   let currentUserName = 'Anónimo';
@@ -102,10 +193,10 @@ io.on('connection', (socket) => {
     });
   });
 
-  // --- BÚSQUEDA AVANZADA (Vídeos, Canales y Listas) ---
-  socket.on('search-videos', async (query) => {
+  // --- BÚSQUEDA GENERAL ---
+  socket.on('search-videos', async ({ query, page = 1 }) => {
     try {
-      // 1. Detectar si es un enlace de lista de reproducción (Playlist)
+      // Detección de enlace de Playlist
       const listMatch = query.match(/[?&]list=([^#&?]+)/);
       if (listMatch) {
         const listId = listMatch[1];
@@ -121,63 +212,62 @@ io.on('connection', (socket) => {
           isPlaylist: true,
           playlistTitle: playlistData.title || 'Lista de reproducción',
           videos,
-          channels: []
+          channels: [],
+          page: 1,
+          hasMore: false
         });
       }
 
-      // 2. Búsqueda normal por palabras clave
-      const searchResults = await ytSearch(query);
-      const videos = (searchResults.videos || []).slice(0, 20).map((v) => ({
+      // Variación de consulta para páginas posteriores (Scroll infinito)
+      let searchQuery = query;
+      if (page === 2) searchQuery = `${query} video`;
+      else if (page === 3) searchQuery = `${query} videos`;
+      else if (page > 3) searchQuery = `${query} playlist`;
+
+      const searchResults = await ytSearch(searchQuery);
+
+      const videos = (searchResults.videos || []).map((v) => ({
         videoId: v.videoId,
         title: v.title,
         thumbnail: v.thumbnail,
         duration: v.timestamp || '',
         author: v.author ? v.author.name : '',
+        authorUrl: v.author ? (v.author.url || '') : '',
         views: v.views ? Number(v.views).toLocaleString() : '',
         ago: v.ago || ''
       }));
 
-      const channels = (searchResults.channels || searchResults.accounts || []).slice(0, 3).map((c) => ({
+      const channels = (page === 1 ? (searchResults.channels || searchResults.accounts || []) : []).slice(0, 3).map((c) => ({
         name: c.name,
+        url: c.url || '',
         avatar: c.image || c.avatar || '',
         subCount: c.subCountLabel || c.subscribers || '',
         videoCount: c.videoCount || ''
       }));
 
-      socket.emit('search-results', { isPlaylist: false, videos, channels });
+      socket.emit('search-results', {
+        isPlaylist: false,
+        videos,
+        channels,
+        page,
+        hasMore: videos.length >= 10
+      });
     } catch (err) {
       console.error('Error buscando:', err);
-      socket.emit('search-results', { isPlaylist: false, videos: [], channels: [] });
+      socket.emit('search-results', { isPlaylist: false, videos: [], channels: [], page, hasMore: false });
     }
   });
 
-  // --- OBTENER VÍDEOS DE UN CANAL EN CONCRETO ---
-  socket.on('get-channel-videos', async (channelName) => {
+  // --- OBTENER VÍDEOS DE CANAL OFICIAL ---
+  socket.on('get-channel-videos', async ({ channelName, channelUrl }) => {
     try {
-      const searchResults = await ytSearch(channelName);
-      const allVideos = searchResults.videos || [];
-
-      // Priorizar los vídeos subidos por este canal en específico
-      const matchingVideos = allVideos.filter((v) =>
-        v.author && v.author.name && v.author.name.toLowerCase() === channelName.toLowerCase()
-      );
-
-      const results = matchingVideos.length >= 4 ? matchingVideos : allVideos;
-      const videos = results.slice(0, 25).map((v) => ({
-        videoId: v.videoId,
-        title: v.title,
-        thumbnail: v.thumbnail,
-        duration: v.timestamp || '',
-        author: v.author ? v.author.name : channelName,
-        views: v.views ? Number(v.views).toLocaleString() : '',
-        ago: v.ago || ''
-      }));
-
+      const videos = await fetchOfficialChannelVideos(channelName, channelUrl);
       socket.emit('channel-videos-result', {
         channelName,
         videos
       });
     } catch (err) {
+      console.error('Error cargando canal:', err);
       socket.emit('channel-videos-result', { channelName, videos: [] });
     }
   });
@@ -201,7 +291,6 @@ io.on('connection', (socket) => {
     notifyAdmins();
   });
 
-  // Añadir múltiples vídeos de golpe (para listas completas)
   socket.on('add-multiple-to-queue', (videoList) => {
     if (!currentRoom || !rooms[currentRoom] || !Array.isArray(videoList)) return;
     rooms[currentRoom].playlist.push(...videoList);
