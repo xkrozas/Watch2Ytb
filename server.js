@@ -7,7 +7,7 @@ const ytSearch = require('yt-search');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  pingInterval: 10000, // Comprobación de conexión más frecuente
+  pingInterval: 10000,
   pingTimeout: 5000
 });
 
@@ -17,7 +17,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Estado de salas
 const rooms = {};
 
-// Calcula el segundo exacto en el que debería estar el vídeo en este instante
 function getCurrentVideoTime(room) {
   if (!room.isPlaying) return room.currentTime;
   const elapsed = (Date.now() - (room.lastUpdated || Date.now())) / 1000;
@@ -27,10 +26,11 @@ function getCurrentVideoTime(room) {
 function getAdminRoomsData() {
   const list = [];
   for (const roomId in rooms) {
-    const socketRoom = io.sockets.adapter.rooms.get(roomId);
+    const userNames = Object.values(rooms[roomId].users || {});
     list.push({
       id: roomId,
-      users: socketRoom ? socketRoom.size : 0,
+      users: userNames.length,
+      userList: userNames,
       videoId: rooms[roomId].videoId,
       isPlaying: rooms[roomId].isPlaying,
       queueCount: (rooms[roomId].playlist || []).length
@@ -43,7 +43,7 @@ function notifyAdmins() {
   io.to('admin-channel').emit('admin-rooms-data', getAdminRoomsData());
 }
 
-// ⏱️ RELOJ MAESTRO: Emite el estado cada 4 segundos a todas las salas para corregir desfases
+// Reloj maestro de sincronización periódica
 setInterval(() => {
   for (const roomId in rooms) {
     const room = rooms[roomId];
@@ -60,9 +60,11 @@ setInterval(() => {
 
 io.on('connection', (socket) => {
   let currentRoom = null;
+  let currentUserName = 'Anónimo';
 
-  socket.on('join-room', (roomId) => {
+  socket.on('join-room', ({ roomId, username }) => {
     currentRoom = roomId;
+    currentUserName = (username && username.trim()) ? username.trim() : 'Invitado';
     socket.join(roomId);
 
     if (!rooms[roomId]) {
@@ -72,24 +74,26 @@ io.on('connection', (socket) => {
         isPlaying: false,
         playlist: [],
         lastUpdated: Date.now(),
-        lastTrackChange: 0
+        lastTrackChange: 0,
+        users: {} // socket.id -> Nombre de usuario
       };
     }
 
-    // Enviar el estado con el tiempo en vivo calculado
-    const liveTime = getCurrentVideoTime(rooms[roomId]);
+    // Registrar usuario en la sala
+    rooms[roomId].users[socket.id] = currentUserName;
+
+    // Enviar estado de sala inicial al que entra
     socket.emit('sync-init', {
       ...rooms[roomId],
-      currentTime: liveTime
+      currentTime: getCurrentVideoTime(rooms[roomId])
     });
 
-    // Actualizar recuento de personas en la sala
-    const userCount = io.sockets.adapter.rooms.get(roomId)?.size || 1;
-    io.to(roomId).emit('room-users-count', userCount);
+    // Enviar lista actualizada de usuarios a todos en la sala
+    const activeUsers = Object.values(rooms[roomId].users);
+    io.to(roomId).emit('room-users-list', activeUsers);
     notifyAdmins();
   });
 
-  // Petición manual de sincronización (botón 🔄 o al volver de otra pestaña)
   socket.on('request-sync', () => {
     if (!currentRoom || !rooms[currentRoom]) return;
     const room = rooms[currentRoom];
@@ -186,7 +190,7 @@ io.on('connection', (socket) => {
     socket.to(currentRoom).emit('seek', time);
   });
 
-  // Panel de Admin
+  // Admin
   socket.on('admin-auth', (password) => {
     if (password === ADMIN_PASSWORD) {
       socket.join('admin-channel');
@@ -208,9 +212,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    if (currentRoom) {
-      const count = io.sockets.adapter.rooms.get(currentRoom)?.size || 0;
-      io.to(currentRoom).emit('room-users-count', count);
+    if (currentRoom && rooms[currentRoom] && rooms[currentRoom].users) {
+      delete rooms[currentRoom].users[socket.id];
+      const activeUsers = Object.values(rooms[currentRoom].users);
+      io.to(currentRoom).emit('room-users-list', activeUsers);
     }
     notifyAdmins();
   });
