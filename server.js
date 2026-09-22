@@ -6,27 +6,31 @@ const ytSearch = require('yt-search');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  pingInterval: 10000, // Comprobación de conexión más frecuente
+  pingTimeout: 5000
+});
 
-// 🔑 CONTRASEÑA DE ADMINISTRADOR (Cámbiala por la que tú quieras)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Almacén de salas
+// Estado de salas
 const rooms = {};
 
-// Función auxiliar para obtener datos de todas las salas para el admin
+// Calcula el segundo exacto en el que debería estar el vídeo en este instante
+function getCurrentVideoTime(room) {
+  if (!room.isPlaying) return room.currentTime;
+  const elapsed = (Date.now() - (room.lastUpdated || Date.now())) / 1000;
+  return room.currentTime + elapsed;
+}
+
 function getAdminRoomsData() {
   const list = [];
   for (const roomId in rooms) {
-    // Socket.io guarda cuántos sockets están unidos a cada sala
     const socketRoom = io.sockets.adapter.rooms.get(roomId);
-    const userCount = socketRoom ? socketRoom.size : 0;
-
     list.push({
       id: roomId,
-      users: userCount,
+      users: socketRoom ? socketRoom.size : 0,
       videoId: rooms[roomId].videoId,
       isPlaying: rooms[roomId].isPlaying,
       queueCount: (rooms[roomId].playlist || []).length
@@ -39,10 +43,24 @@ function notifyAdmins() {
   io.to('admin-channel').emit('admin-rooms-data', getAdminRoomsData());
 }
 
+// ⏱️ RELOJ MAESTRO: Emite el estado cada 4 segundos a todas las salas para corregir desfases
+setInterval(() => {
+  for (const roomId in rooms) {
+    const room = rooms[roomId];
+    if (room && room.isPlaying) {
+      const liveTime = getCurrentVideoTime(room);
+      io.to(roomId).emit('heartbeat-sync', {
+        currentTime: liveTime,
+        isPlaying: room.isPlaying,
+        videoId: room.videoId
+      });
+    }
+  }
+}, 4000);
+
 io.on('connection', (socket) => {
   let currentRoom = null;
 
-  // --- GESTIÓN DE SALAS DE USUARIOS ---
   socket.on('join-room', (roomId) => {
     currentRoom = roomId;
     socket.join(roomId);
@@ -53,16 +71,36 @@ io.on('connection', (socket) => {
         currentTime: 0,
         isPlaying: false,
         playlist: [],
+        lastUpdated: Date.now(),
         lastTrackChange: 0
       };
     }
 
-    socket.emit('sync-init', rooms[roomId]);
-    // Notificar al panel admin que ha entrado alguien
+    // Enviar el estado con el tiempo en vivo calculado
+    const liveTime = getCurrentVideoTime(rooms[roomId]);
+    socket.emit('sync-init', {
+      ...rooms[roomId],
+      currentTime: liveTime
+    });
+
+    // Actualizar recuento de personas en la sala
+    const userCount = io.sockets.adapter.rooms.get(roomId)?.size || 1;
+    io.to(roomId).emit('room-users-count', userCount);
     notifyAdmins();
   });
 
-  // Buscador de YouTube
+  // Petición manual de sincronización (botón 🔄 o al volver de otra pestaña)
+  socket.on('request-sync', () => {
+    if (!currentRoom || !rooms[currentRoom]) return;
+    const room = rooms[currentRoom];
+    socket.emit('heartbeat-sync', {
+      currentTime: getCurrentVideoTime(room),
+      isPlaying: room.isPlaying,
+      videoId: room.videoId,
+      force: true
+    });
+  });
+
   socket.on('search-videos', async (query) => {
     try {
       const searchResults = await ytSearch(query);
@@ -85,6 +123,7 @@ io.on('connection', (socket) => {
     rooms[currentRoom].videoId = videoId;
     rooms[currentRoom].currentTime = 0;
     rooms[currentRoom].isPlaying = true;
+    rooms[currentRoom].lastUpdated = Date.now();
     io.to(currentRoom).emit('video-changed', videoId);
     notifyAdmins();
   });
@@ -115,6 +154,7 @@ io.on('connection', (socket) => {
       room.videoId = nextVideo.videoId;
       room.currentTime = 0;
       room.isPlaying = true;
+      room.lastUpdated = Date.now();
       io.to(currentRoom).emit('video-changed', nextVideo.videoId);
       io.to(currentRoom).emit('queue-updated', room.playlist);
       notifyAdmins();
@@ -125,6 +165,7 @@ io.on('connection', (socket) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     rooms[currentRoom].isPlaying = true;
     rooms[currentRoom].currentTime = time;
+    rooms[currentRoom].lastUpdated = Date.now();
     socket.to(currentRoom).emit('play', time);
     notifyAdmins();
   });
@@ -133,6 +174,7 @@ io.on('connection', (socket) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     rooms[currentRoom].isPlaying = false;
     rooms[currentRoom].currentTime = time;
+    rooms[currentRoom].lastUpdated = Date.now();
     socket.to(currentRoom).emit('pause', time);
     notifyAdmins();
   });
@@ -140,12 +182,11 @@ io.on('connection', (socket) => {
   socket.on('seek', (time) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     rooms[currentRoom].currentTime = time;
+    rooms[currentRoom].lastUpdated = Date.now();
     socket.to(currentRoom).emit('seek', time);
   });
 
-  // --- GESTIÓN DEL PANEL DE ADMINISTRACIÓN ---
-
-  // Login del administrador
+  // Panel de Admin
   socket.on('admin-auth', (password) => {
     if (password === ADMIN_PASSWORD) {
       socket.join('admin-channel');
@@ -156,24 +197,21 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Eliminar una sala
   socket.on('admin-delete-room', ({ password, roomId }) => {
     if (password !== ADMIN_PASSWORD) return;
-
     if (rooms[roomId]) {
-      // 1. Avisar a todos los usuarios de esa sala para expulsarlos
       io.to(roomId).emit('room-deleted');
-      // 2. Desconectar a todos de esa sala
       io.socketsLeave(roomId);
-      // 3. Borrar la sala de la memoria
       delete rooms[roomId];
-      // 4. Actualizar el panel de admin
       notifyAdmins();
     }
   });
 
   socket.on('disconnect', () => {
-    // Al desconectarse alguien, actualizar los contadores del admin
+    if (currentRoom) {
+      const count = io.sockets.adapter.rooms.get(currentRoom)?.size || 0;
+      io.to(currentRoom).emit('room-users-count', count);
+    }
     notifyAdmins();
   });
 });
