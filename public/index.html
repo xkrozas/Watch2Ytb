@@ -2,13 +2,33 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>WatchParty - Anti-Fallos</title>
+  <title>WatchParty - YouTube Sincronizado</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/socket.io/socket.io.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: #0f0f0f; color: #fff; padding: 15px; }
 
+    /* Modal de Bienvenida / Crear Sala */
+    #join-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.88); z-index: 9999;
+      display: flex; justify-content: center; align-items: center; padding: 20px;
+    }
+    .modal-card {
+      background: #1a1a1a; max-width: 420px; width: 100%; border-radius: 12px;
+      padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+      border: 1px solid #2a2a2a;
+    }
+    .modal-card h2 { font-size: 1.5rem; margin-bottom: 8px; color: #ff0000; }
+    .modal-card p { font-size: 14px; color: #aaa; margin-bottom: 20px; }
+    .modal-card input {
+      width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333;
+      background: #0f0f0f; color: white; font-size: 15px; margin-bottom: 15px;
+    }
+    .modal-card input:focus { outline: 1px solid #ff0000; }
+    .modal-card button { width: 100%; padding: 12px; font-size: 15px; border-radius: 8px; }
+
+    /* Estructura Principal */
     header { display: flex; justify-content: space-between; align-items: center; max-width: 1400px; margin: 0 auto 15px; flex-wrap: wrap; gap: 10px; }
     h1 { font-size: 1.3rem; color: #ff0000; display: flex; align-items: center; gap: 8px; }
 
@@ -18,7 +38,7 @@
     .status-reconnecting { color: #ffeb3b; border: 1px solid #fbc02d; }
     .status-disconnected { color: #f44336; border: 1px solid #d32f2f; }
 
-    button { background: #ff0000; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+    button { background: #ff0000; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
     button:hover { background: #cc0000; }
     .btn-secondary { background: #272727; color: #fff; }
     .btn-secondary:hover { background: #3f3f3f; }
@@ -32,7 +52,7 @@
 
     .sidebar { background: #1a1a1a; border-radius: 10px; display: flex; flex-direction: column; height: calc(100vh - 90px); min-height: 500px; }
     .tabs { display: flex; border-bottom: 1px solid #2a2a2a; }
-    .tab-btn { flex: 1; background: transparent; border-radius: 0; padding: 12px; border-bottom: 2px solid transparent; color: #aaa; }
+    .tab-btn { flex: 1; background: transparent; border-radius: 0; padding: 12px 6px; border-bottom: 2px solid transparent; color: #aaa; font-size: 12px; }
     .tab-btn.active { color: #fff; border-bottom: 2px solid #ff0000; font-weight: bold; }
 
     .tab-content { display: none; flex-direction: column; flex: 1; overflow: hidden; padding: 12px; }
@@ -50,16 +70,32 @@
     .card-actions { display: flex; flex-direction: column; gap: 4px; }
     .card-actions button { padding: 4px 8px; font-size: 11px; }
 
+    /* Lista de Personas */
+    .user-item { display: flex; align-items: center; gap: 10px; background: #222; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
+    .user-dot { width: 10px; height: 10px; background: #4caf50; border-radius: 50%; display: inline-block; }
+    .you-tag { font-size: 11px; background: #ff0000; padding: 2px 6px; border-radius: 4px; margin-left: auto; }
+
     .empty-state { text-align: center; color: #777; margin-top: 40px; font-size: 13px; }
   </style>
 </head>
 <body>
 
+  <!-- PANTALLA MODAL DE BIENVENIDA / ENTRADA -->
+  <div id="join-modal-overlay">
+    <div class="modal-card">
+      <h2 id="modal-title">🎬 WatchParty</h2>
+      <p id="modal-desc">Elige tu nombre para entrar a la sala con tus amigos.</p>
+      
+      <input type="text" id="username-input" placeholder="Tu nombre o apodo..." maxlength="20" autofocus>
+      <button id="enter-btn">Entrar</button>
+    </div>
+  </div>
+
   <header>
     <h1>🎬 WatchParty</h1>
     <div class="header-actions">
-      <span id="status-badge" class="status-badge status-connected">🟢 Conectando...</span>
-      <button id="sync-btn" class="btn-secondary" title="Fuerza la sincronización si notas desfase">🔄 Sincronizar</button>
+      <span id="status-badge" class="status-badge status-connected">🟢 Conectado</span>
+      <button id="sync-btn" class="btn-secondary" title="Sincronizar">🔄 Sincronizar</button>
       <button id="copy-btn">📋 Copiar enlace</button>
     </div>
   </header>
@@ -78,8 +114,10 @@
       <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('search')">🔍 Buscar</button>
         <button class="tab-btn" onclick="switchTab('queue')">📑 Cola (<span id="queue-count">0</span>)</button>
+        <button class="tab-btn" onclick="switchTab('users')">👥 Personas (<span id="users-count">0</span>)</button>
       </div>
 
+      <!-- Pestaña Buscar -->
       <div id="tab-search" class="tab-content active">
         <div class="search-bar">
           <input type="text" id="search-input" placeholder="Buscar canciones o pegar enlace...">
@@ -90,9 +128,17 @@
         </div>
       </div>
 
+      <!-- Pestaña Cola -->
       <div id="tab-queue" class="tab-content">
         <div class="item-list" id="queue-list">
           <div class="empty-state">La cola está vacía.</div>
+        </div>
+      </div>
+
+      <!-- Pestaña Personas -->
+      <div id="tab-users" class="tab-content">
+        <div class="item-list" id="users-list">
+          <!-- Usuarios conectados -->
         </div>
       </div>
     </div>
@@ -101,34 +147,82 @@
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     let roomId = urlParams.get('room');
-    if (!roomId) {
-      roomId = Math.random().toString(36).substring(2, 9);
-      window.location.search = `?room=${roomId}`;
-    }
+    let myUsername = localStorage.getItem('wp_username') || '';
 
     const socket = io();
     let player;
     let isRemoteAction = false;
     let remoteTimeout;
     let lastReportedTime = 0;
+    let isJoined = false;
 
-    // Escudo temporal para evitar bucles
+    // Configuración del texto del Modal según si es sala nueva o invitación
+    const modalTitle = document.getElementById('modal-title');
+    const modalDesc = document.getElementById('modal-desc');
+    const enterBtn = document.getElementById('enter-btn');
+    const usernameInput = document.getElementById('username-input');
+
+    if (myUsername) usernameInput.value = myUsername;
+
+    if (roomId) {
+      modalTitle.innerText = "👋 ¡Te han invitado!";
+      modalDesc.innerText = `Introduce tu nombre para unirte a la sala: ${roomId}`;
+      enterBtn.innerText = "Unirme a la sala";
+    } else {
+      modalTitle.innerText = "🎬 Crear una sala";
+      modalDesc.innerText = "Introduce tu nombre para crear y compartir tu sala de YouTube:";
+      enterBtn.innerText = "🚀 Crear sala y entrar";
+    }
+
+    // Acción al pulsar entrar
+    enterBtn.addEventListener('click', proceedJoin);
+    usernameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') proceedJoin();
+    });
+
+    function proceedJoin() {
+      const name = usernameInput.value.trim();
+      if (!name) {
+        alert("Por favor, introduce tu nombre o apodo.");
+        return;
+      }
+
+      myUsername = name;
+      localStorage.setItem('wp_username', myUsername);
+
+      // Si no había sala en la URL, generar una nueva
+      if (!roomId) {
+        roomId = Math.random().toString(36).substring(2, 9);
+        const newUrl = `${window.location.pathname}?room=${roomId}`;
+        window.history.pushState({ path: newUrl }, '', newUrl);
+      }
+
+      // Ocultar modal
+      document.getElementById('join-modal-overlay').style.display = 'none';
+      isJoined = true;
+
+      // Iniciar YouTube API y unirse a la sala
+      initYouTube();
+      if (socket.connected) {
+        socket.emit('join-room', { roomId, username: myUsername });
+      }
+    }
+
     function setRemoteAction(duration = 1500) {
       isRemoteAction = true;
       clearTimeout(remoteTimeout);
-      remoteTimeout = setTimeout(() => {
-        isRemoteAction = false;
-      }, duration);
+      remoteTimeout = setTimeout(() => { isRemoteAction = false; }, duration);
     }
 
-    // --- GESTIÓN DE CONEXIÓN ROBUSTA (ANTI-FALLOS) ---
+    // --- CONEXIÓN SOCKET ---
     const statusBadge = document.getElementById('status-badge');
 
     socket.on('connect', () => {
       statusBadge.className = 'status-badge status-connected';
       statusBadge.innerText = '🟢 Conectado';
-      // AL RECONECTAR: volver a unirse siempre a la sala
-      socket.emit('join-room', roomId);
+      if (isJoined) {
+        socket.emit('join-room', { roomId, username: myUsername });
+      }
     });
 
     socket.on('disconnect', () => {
@@ -141,20 +235,43 @@
       statusBadge.innerText = '🟡 Reconectando...';
     });
 
-    socket.on('room-users-count', (count) => {
-      if (socket.connected) {
-        statusBadge.innerText = `🟢 En línea (${count} en sala)`;
-      }
+    // Actualización de lista de personas
+    socket.on('room-users-list', (users) => {
+      document.getElementById('users-count').innerText = users.length;
+      statusBadge.innerText = `🟢 En línea (${users.length})`;
+
+      const list = document.getElementById('users-list');
+      list.innerHTML = '';
+
+      let selfHighlighted = false;
+      users.forEach((name) => {
+        const div = document.createElement('div');
+        div.className = 'user-item';
+
+        const isMe = (!selfHighlighted && name === myUsername);
+        if (isMe) selfHighlighted = true;
+
+        div.innerHTML = `
+          <span class="user-dot"></span>
+          <span><b>${name}</b></span>
+          ${isMe ? '<span class="you-tag">Tú</span>' : ''}
+        `;
+        list.appendChild(div);
+      });
     });
 
     // Cargar API de YouTube
-    const tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.body.appendChild(tag);
+    function initYouTube() {
+      if (window.YT) return;
+      const tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(tag);
+    }
 
     function onYouTubeIframeAPIReady() {
-      // Si el socket ya estaba listo, pedir la sala
-      if (socket.connected) socket.emit('join-room', roomId);
+      if (isJoined && socket.connected) {
+        socket.emit('join-room', { roomId, username: myUsername });
+      }
     }
 
     socket.on('sync-init', (data) => {
@@ -166,9 +283,7 @@
             'start': Math.floor(data.currentTime),
             'playsinline': 1 
           },
-          events: {
-            'onStateChange': onPlayerStateChange
-          }
+          events: { 'onStateChange': onPlayerStateChange }
         });
       } else {
         setRemoteAction(2000);
@@ -178,20 +293,16 @@
       renderQueue(data.playlist || []);
     });
 
-    // 🔄 Sincronización continua de fondo (Heartbeat cada 4 segs)
     socket.on('heartbeat-sync', (data) => {
       if (!player || !player.getCurrentTime || isRemoteAction) return;
-
       const localTime = player.getCurrentTime();
       const drift = Math.abs(localTime - data.currentTime);
 
-      // Si nos hemos desviado más de 2.5 segundos, corregir la posición
       if (drift > 2.5 || data.force) {
         setRemoteAction(1200);
         player.seekTo(data.currentTime, true);
       }
 
-      // Si el estado play/pause difiere de la sala
       const state = player.getPlayerState();
       if (data.isPlaying && state !== YT.PlayerState.PLAYING && state !== YT.PlayerState.BUFFERING) {
         setRemoteAction(1200);
@@ -202,7 +313,6 @@
       }
     });
 
-    // Control de eventos locales
     function onPlayerStateChange(event) {
       if (isRemoteAction) return;
       const currentTime = player.getCurrentTime();
@@ -216,7 +326,6 @@
       }
     }
 
-    // Monitor para detectar saltos manuales en la barra de tiempo (Seek)
     setInterval(() => {
       if (!player || !player.getCurrentTime || isRemoteAction) return;
       const current = player.getCurrentTime();
@@ -226,14 +335,12 @@
       lastReportedTime = current;
     }, 1000);
 
-    // Si el usuario cambia de pestaña y regresa, pedir resincronización al instante
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && socket.connected) {
+      if (document.visibilityState === 'visible' && socket.connected && isJoined) {
         socket.emit('request-sync');
       }
     });
 
-    // Sockets recibidos
     socket.on('play', (time) => {
       setRemoteAction(1200);
       if (time && Math.abs(player.getCurrentTime() - time) > 1.5) player.seekTo(time, true);
@@ -256,20 +363,17 @@
       player.loadVideoById(videoId);
     });
 
-    socket.on('queue-updated', (queue) => {
-      renderQueue(queue);
-    });
+    socket.on('queue-updated', (queue) => { renderQueue(queue); });
 
     socket.on('room-deleted', () => {
       alert('Esta sala ha sido eliminada por el administrador.');
       window.location.href = '/';
     });
 
-    // Botón de forzar sincronización manual
     document.getElementById('sync-btn').addEventListener('click', () => {
       socket.emit('request-sync');
       const btn = document.getElementById('sync-btn');
-      btn.innerText = '✅ ¡Sincronizado!';
+      btn.innerText = '✅ ¡Listo!';
       setTimeout(() => { btn.innerText = '🔄 Sincronizar'; }, 1500);
     });
 
@@ -293,7 +397,6 @@
         container.innerHTML = '<div class="empty-state">No se encontraron resultados.</div>';
         return;
       }
-
       results.forEach((v) => {
         const div = document.createElement('div');
         div.className = 'video-card';
@@ -321,7 +424,7 @@
       const list = document.getElementById('queue-list');
       list.innerHTML = '';
       if (queue.length === 0) {
-        list.innerHTML = '<div class="empty-state">La cola está vacía. Añade vídeos desde el buscador.</div>';
+        list.innerHTML = '<div class="empty-state">La cola está vacía.</div>';
         return;
       }
       queue.forEach((v, index) => {
@@ -347,9 +450,12 @@
       if (tab === 'search') {
         document.querySelectorAll('.tab-btn')[0].classList.add('active');
         document.getElementById('tab-search').classList.add('active');
-      } else {
+      } else if (tab === 'queue') {
         document.querySelectorAll('.tab-btn')[1].classList.add('active');
         document.getElementById('tab-queue').classList.add('active');
+      } else if (tab === 'users') {
+        document.querySelectorAll('.tab-btn')[2].classList.add('active');
+        document.getElementById('tab-users').classList.add('active');
       }
     }
 
