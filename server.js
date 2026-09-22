@@ -58,18 +58,16 @@ setInterval(() => {
   }
 }, 4000);
 
-// --- FUNCIÓN MAESTRA: Obtener los vídeos 100% oficiales de un canal ---
+// --- FUNCIÓN BLINDADA CON TIMEOUT: Obtener vídeos oficiales de un canal ---
 async function fetchOfficialChannelVideos(channelName, channelUrl) {
   let channelId = null;
 
   try {
-    // 1. Si la URL ya incluye directamente el ID de canal 'UC...'
     if (channelUrl) {
       const directMatch = channelUrl.match(/UC[\w-]{22}/);
       if (directMatch) channelId = directMatch[0];
     }
 
-    // 2. Si no lo tiene, consultamos la página web del canal para extraer el channelId
     if (!channelId) {
       let targetUrl = channelUrl;
       if (!targetUrl || !targetUrl.startsWith('http')) {
@@ -78,7 +76,11 @@ async function fetchOfficialChannelVideos(channelName, channelUrl) {
         } else if (channelName.startsWith('@')) {
           targetUrl = `https://www.youtube.com/${channelName}`;
         } else {
-          const search = await ytSearch(channelName);
+          // Búsqueda rápida del canal con timeout de 3 segundos
+          const searchPromise = ytSearch(channelName);
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000));
+          const search = await Promise.race([searchPromise, timeoutPromise]);
+
           const firstChan = (search.channels || [])[0];
           if (firstChan && firstChan.url) {
             targetUrl = firstChan.url.startsWith('http') ? firstChan.url : 'https://www.youtube.com' + firstChan.url;
@@ -89,23 +91,34 @@ async function fetchOfficialChannelVideos(channelName, channelUrl) {
       }
 
       if (targetUrl) {
-        const res = await fetch(targetUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+        // Petición HTTP con cancelación obligatoria a los 3.5 segundos para no congelar el servidor
+        const controller = new AbortController();
+        const fetchTimeout = setTimeout(() => controller.abort(), 3500);
+
+        try {
+          const res = await fetch(targetUrl, {
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+            }
+          });
+          clearTimeout(fetchTimeout);
+
+          const html = await res.text();
+          const match = html.match(/"channelId":"(UC[\w-]{22})"/);
+          if (match) channelId = match[1];
+          else {
+            const matchMeta = html.match(/<meta itemprop="channelId" content="(UC[\w-]{22})">/);
+            if (matchMeta) channelId = matchMeta[1];
           }
-        });
-        const html = await res.text();
-        const match = html.match(/"channelId":"(UC[\w-]{22})"/);
-        if (match) channelId = match[1];
-        else {
-          const matchMeta = html.match(/<meta itemprop="channelId" content="(UC[\w-]{22})">/);
-          if (matchMeta) channelId = matchMeta[1];
+        } catch (fetchErr) {
+          clearTimeout(fetchTimeout);
         }
       }
     }
 
-    // 3. Convertimos 'UC...' a 'UU...' (la lista oficial de subidas del canal de YouTube)
+    // Convertir UC a UU (lista oficial de subidas)
     if (channelId && channelId.startsWith('UC')) {
       const uploadsPlaylistId = 'UU' + channelId.slice(2);
       const playlistData = await ytSearch({ listId: uploadsPlaylistId });
@@ -123,19 +136,20 @@ async function fetchOfficialChannelVideos(channelName, channelUrl) {
       }
     }
   } catch (err) {
-    console.warn('Fallo al obtener la lista UU del canal, recurriendo a búsqueda estricta:', err.message);
+    console.warn('Fallo en búsqueda UU de canal, pasando a filtro estricto:', err.message);
   }
 
-  // 4. Modo de respaldo: búsqueda estricta donde solo se aceptan coincidencias exactas del autor
+  // Respaldo rápido: Búsqueda estricta por autor
   try {
-    const searchRes = await ytSearch(`"${channelName}"`);
+    const searchRes = await ytSearch(channelName);
     const cleanTarget = channelName.toLowerCase().replace(/[^a-z0-9]/g, '');
     const strictlyFiltered = (searchRes.videos || []).filter((v) => {
       const cleanAuthor = (v.author?.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
       return cleanAuthor.includes(cleanTarget) || cleanTarget.includes(cleanAuthor);
     });
 
-    return strictlyFiltered.map((v) => ({
+    const listToUse = strictlyFiltered.length >= 3 ? strictlyFiltered : (searchRes.videos || []);
+    return listToUse.map((v) => ({
       videoId: v.videoId,
       title: v.title,
       thumbnail: v.thumbnail,
@@ -193,10 +207,16 @@ io.on('connection', (socket) => {
     });
   });
 
-  // --- BÚSQUEDA GENERAL ---
-  socket.on('search-videos', async ({ query, page = 1 }) => {
+  // --- BÚSQUEDA GENERAL SEGURA ---
+  socket.on('search-videos', async (data) => {
+    const query = (typeof data === 'string' ? data : (data?.query || '')).trim();
+    const page = typeof data === 'object' && data?.page ? data.page : 1;
+
+    if (!query) {
+      return socket.emit('search-results', { isPlaylist: false, videos: [], channels: [], page, hasMore: false });
+    }
+
     try {
-      // Detección de enlace de Playlist
       const listMatch = query.match(/[?&]list=([^#&?]+)/);
       if (listMatch) {
         const listId = listMatch[1];
@@ -218,7 +238,6 @@ io.on('connection', (socket) => {
         });
       }
 
-      // Variación de consulta para páginas posteriores (Scroll infinito)
       let searchQuery = query;
       if (page === 2) searchQuery = `${query} video`;
       else if (page === 3) searchQuery = `${query} videos`;
@@ -259,13 +278,17 @@ io.on('connection', (socket) => {
   });
 
   // --- OBTENER VÍDEOS DE CANAL OFICIAL ---
-  socket.on('get-channel-videos', async ({ channelName, channelUrl }) => {
+  socket.on('get-channel-videos', async (data) => {
+    const channelName = typeof data === 'string' ? data : (data?.channelName || '');
+    const channelUrl = typeof data === 'object' ? (data?.channelUrl || '') : '';
+
+    if (!channelName) {
+      return socket.emit('channel-videos-result', { channelName: '', videos: [] });
+    }
+
     try {
       const videos = await fetchOfficialChannelVideos(channelName, channelUrl);
-      socket.emit('channel-videos-result', {
-        channelName,
-        videos
-      });
+      socket.emit('channel-videos-result', { channelName, videos });
     } catch (err) {
       console.error('Error cargando canal:', err);
       socket.emit('channel-videos-result', { channelName, videos: [] });
