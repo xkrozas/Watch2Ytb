@@ -23,7 +23,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     body { background-color: var(--bg-dark); color: var(--text-main); height: 100vh; overflow: hidden; }
 
-    /* --- VISTA 1: HOME LANDING PAGE (Captura 1) --- */
+    /* --- VISTA 1: HOME (Captura 1) --- */
     #home-view {
       display: flex; flex-direction: column; height: 100vh; background: var(--bg-dark);
     }
@@ -54,7 +54,28 @@
     .btn-create-room:hover { background: var(--accent-yellow-hover); transform: translateY(-1px); }
     .hero-sub { margin-top: 15px; color: var(--text-muted); font-size: 13px; }
 
-    /* --- VISTA 2: INTERFAZ DE SALA (Capturas 2, 3 y 4) --- */
+    /* --- MODAL DE ENTRADA PARA INVITADOS (Desbloquea el sonido y autoplay) --- */
+    .guest-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); z-index: 1000;
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .guest-card {
+      background: #1e2633; border: 1px solid var(--border-color); border-radius: 8px;
+      padding: 30px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+    }
+    .guest-card h2 { font-size: 1.4rem; color: #fff; margin-bottom: 10px; }
+    .guest-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+    .guest-card input {
+      width: 100%; padding: 12px; background: #0f141b; border: 1px solid var(--border-color);
+      border-radius: 4px; color: #fff; font-size: 14px; margin-bottom: 15px; outline: none; text-align: center;
+    }
+    .guest-card button {
+      width: 100%; padding: 12px; background: var(--accent-yellow); border: none; border-radius: 4px;
+      color: #000; font-size: 14px; font-weight: bold; cursor: pointer;
+    }
+    .guest-card button:hover { background: var(--accent-yellow-hover); }
+
+    /* --- VISTA 2: SALA PRINCIPAL --- */
     #room-view { display: none; flex-direction: column; height: 100vh; }
 
     /* Barra Superior */
@@ -65,7 +86,6 @@
     .room-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); cursor: pointer; min-width: 140px; }
     .room-info:hover { color: #fff; }
 
-    /* Buscador Superior Central */
     .top-search-wrap { flex: 1; max-width: 650px; position: relative; }
     .top-search-bar {
       display: flex; align-items: center; background: #0f141b; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 10px;
@@ -84,10 +104,10 @@
     }
     .btn-invite:hover { background: var(--accent-yellow-hover); }
 
-    /* Estructura del reproductor y barras laterales */
+    /* Estructura Principal */
     .room-main { flex: 1; display: flex; overflow: hidden; position: relative; }
 
-    /* Dock Lateral Izquierdo de Iconos */
+    /* Dock Izquierdo */
     .left-dock {
       width: 58px; background: var(--bg-header); border-right: 1px solid var(--border-color);
       display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 15px 0;
@@ -105,12 +125,21 @@
     }
     .dock-user-label { font-size: 9px; color: var(--accent-yellow); max-width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    /* Área Central del Vídeo */
+    /* Escenario Central */
     .center-stage { flex: 1; display: flex; flex-direction: column; background: #000; position: relative; }
     .video-container { flex: 1; position: relative; width: 100%; height: 100%; }
     #player { width: 100%; height: 100%; position: absolute; inset: 0; }
 
-    /* Cajón Desplegable del Buscador (Captura 4) */
+    /* Botón flotante para activar sonido si el navegador bloquea audio */
+    .unmute-banner {
+      position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
+      background: var(--accent-yellow); color: #000; font-weight: bold; font-size: 13px;
+      padding: 10px 22px; border-radius: 30px; cursor: pointer; z-index: 20;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.8); display: none; align-items: center; gap: 8px;
+    }
+    .unmute-banner:hover { background: var(--accent-yellow-hover); transform: translateX(-50%) scale(1.03); }
+
+    /* Cajón Desplegable del Buscador */
     .search-drawer {
       position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(18, 24, 32, 0.98);
       z-index: 5; display: none; flex-direction: column; padding: 15px 25px; overflow: hidden;
@@ -142,7 +171,7 @@
     .btn-play-now { background: var(--accent-yellow); color: #000; border: none; }
     .btn-play-now:hover { background: var(--accent-yellow-hover); }
 
-    /* Barra Lateral Derecha (Chat, Listas, Historial) */
+    /* Barra Lateral Derecha */
     .right-sidebar {
       width: 320px; background: var(--bg-panel); border-left: 1px solid var(--border-color);
       display: flex; flex-direction: column;
@@ -178,7 +207,7 @@
     .queue-card-title { flex: 1; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
     .btn-remove-queue { background: transparent; border: none; color: #ff5252; cursor: pointer; padding: 4px; }
 
-    /* --- MODAL DE INVITACIÓN (Captura 2) --- */
+    /* Modal de Invitación */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); display: none;
       align-items: center; justify-content: center; z-index: 100;
@@ -207,7 +236,17 @@
 </head>
 <body>
 
-  <!-- ==================== VISTA 1: HOME (Captura 1) ==================== -->
+  <!-- MODAL DE ENTRADA PARA INVITADOS (Desbloquea el autoplay por ley del navegador) -->
+  <div class="guest-modal-overlay" id="guest-modal">
+    <div class="guest-card">
+      <h2>👋 ¡Te han invitado a ver juntos!</h2>
+      <p>Elige tu nombre para entrar a la sala con tus amigos:</p>
+      <input type="text" id="guest-name-input" placeholder="Tu nombre..." maxlength="20">
+      <button onclick="confirmGuestEntry()">▶ Entrar a la Sala</button>
+    </div>
+  </div>
+
+  <!-- VISTA 1: HOME -->
   <div id="home-view">
     <nav class="home-nav">
       <a href="/" class="w2g-logo">
@@ -227,15 +266,13 @@
     </main>
   </div>
 
-  <!-- ==================== VISTA 2: SALA (Capturas 2, 3 y 4) ==================== -->
+  <!-- VISTA 2: SALA -->
   <div id="room-view">
-    <!-- Barra Superior -->
     <header class="room-header">
       <div class="room-info" onclick="openInviteModal()">
         <span>Temporary Room</span> 📋
       </div>
 
-      <!-- Buscador Superior -->
       <div class="top-search-wrap">
         <div class="top-search-bar">
           <button class="search-btn-icon" style="color: var(--accent-yellow)">▶</button>
@@ -252,7 +289,6 @@
     </header>
 
     <div class="room-main">
-      <!-- Dock Lateral Izquierdo -->
       <aside class="left-dock">
         <div class="dock-top">
           <div class="dock-item" onclick="openInviteModal()">
@@ -277,13 +313,15 @@
         </div>
       </aside>
 
-      <!-- Escenario Central (Vídeo + Desplegable de Búsqueda) -->
       <section class="center-stage">
         <div class="video-container">
           <div id="player"></div>
+          <!-- Botón de emergencia para desmutear -->
+          <div id="unmute-banner" class="unmute-banner" onclick="unmutePlayer()">
+            🔊 Haz clic aquí para activar el sonido
+          </div>
         </div>
 
-        <!-- Cajón Desplegable de Búsqueda (Captura 4) -->
         <div class="search-drawer" id="search-drawer">
           <div class="drawer-nav">
             <div class="drawer-tabs">
@@ -304,7 +342,6 @@
         </div>
       </section>
 
-      <!-- Barra Lateral Derecha -->
       <aside class="right-sidebar">
         <div class="side-tabs">
           <button class="side-tab active" onclick="switchSideTab('chat')">Chat</button>
@@ -312,7 +349,6 @@
           <button class="side-tab" onclick="switchSideTab('history')">Historial</button>
         </div>
 
-        <!-- Pestaña Chat -->
         <div id="tab-chat" class="side-tab-content active">
           <div class="chat-messages" id="chat-messages">
             <div class="chat-msg" style="color: var(--text-muted); text-align: center;">¡Bienvenidos a la sala!</div>
@@ -323,14 +359,12 @@
           </div>
         </div>
 
-        <!-- Pestaña Cola -->
         <div id="tab-playlist" class="side-tab-content">
           <div class="queue-items" id="queue-items">
             <div style="text-align: center; color: var(--text-muted); margin-top: 30px; font-size: 12px;">La lista está vacía. Añade vídeos desde el buscador.</div>
           </div>
         </div>
 
-        <!-- Pestaña Historial -->
         <div id="tab-history" class="side-tab-content">
           <div class="queue-items" id="history-items">
             <div style="text-align: center; color: var(--text-muted); margin-top: 30px; font-size: 12px;">Aún no se han reproducido vídeos.</div>
@@ -340,7 +374,7 @@
     </div>
   </div>
 
-  <!-- ==================== MODAL DE INVITACIÓN (Captura 2) ==================== -->
+  <!-- MODAL DE INVITACIÓN -->
   <div class="modal-overlay" id="invite-modal">
     <div class="invite-modal-card">
       <div class="invite-header">¡Invita a tus amigos a ver contigo!</div>
@@ -365,7 +399,6 @@
   </div>
 
   <script>
-    // Parámetros y Estado
     const urlParams = new URLSearchParams(window.location.search);
     let roomId = urlParams.get('r');
     let myUsername = localStorage.getItem('w2g_username') || '';
@@ -376,30 +409,44 @@
     let isRemoteAction = false;
     let remoteTimeout = null;
     let pendingVideo = null;
+    let hasUserInteracted = false;
 
-    // Inicialización de Vistas
+    // Inicialización según la URL
     if (roomId) {
       document.getElementById('home-view').style.display = 'none';
       document.getElementById('room-view').style.display = 'flex';
-      joinRoomSession(roomId);
+
+      // Si el usuario entra por enlace, mostramos el modal para registrar el primer clic (Gesto de Autoplay)
+      const guestModal = document.getElementById('guest-modal');
+      const nameInput = document.getElementById('guest-name-input');
+      nameInput.value = myUsername || `User-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      guestModal.style.display = 'flex';
     } else {
       document.getElementById('home-view').style.display = 'flex';
       document.getElementById('room-view').style.display = 'none';
     }
 
+    function confirmGuestEntry() {
+      hasUserInteracted = true;
+      const inp = document.getElementById('guest-name-input').value.trim();
+      if (inp) {
+        myUsername = inp;
+        localStorage.setItem('w2g_username', myUsername);
+      }
+      document.getElementById('guest-modal').style.display = 'none';
+
+      // Unirse a la sala vía sockets una vez el usuario ha hecho clic
+      socket.emit('join-room', { roomId, username: myUsername });
+    }
+
     function createNewRoom() {
+      hasUserInteracted = true;
       const newRoom = Math.random().toString(36).substring(2, 10);
       window.location.search = `?r=${newRoom}`;
     }
 
-    function joinRoomSession(id) {
-      if (socket.connected) {
-        socket.emit('join-room', { roomId: id, username: myUsername });
-      }
-    }
-
     socket.on('connect', () => {
-      if (roomId) {
+      if (roomId && hasUserInteracted) {
         socket.emit('join-room', { roomId, username: myUsername });
       }
     });
@@ -444,22 +491,55 @@
       remoteTimeout = setTimeout(() => { isRemoteAction = false; }, ms);
     }
 
+    // CARGA DE VÍDEO CON ARRANQUE FORZADO ANTI-CONGELACIÓN
     function safeLoad(videoId, start = 0, play = true) {
       if (isPlayerReady && player && typeof player.loadVideoById === 'function') {
         setRemoteCooldown(2000);
         player.loadVideoById({ videoId, startSeconds: Math.floor(start) });
-        if (!play && typeof player.pauseVideo === 'function') player.pauseVideo();
+
+        if (play) {
+          player.playVideo();
+
+          // Comprobación de seguridad: Si el navegador bloqueó el autoplay con sonido
+          setTimeout(() => {
+            if (player && typeof player.getPlayerState === 'function') {
+              const st = player.getPlayerState();
+              // Si no está reproduciendo (está congelado en miniatura o en pausa):
+              if (st !== YT.PlayerState.PLAYING && st !== YT.PlayerState.BUFFERING) {
+                // Forzar reproducción silenciada y mostrar botón de desmutear
+                player.mute();
+                player.playVideo();
+                document.getElementById('unmute-banner').style.display = 'flex';
+              }
+            }
+          }, 1200);
+        } else {
+          if (typeof player.pauseVideo === 'function') player.pauseVideo();
+        }
       } else {
         pendingVideo = { videoId, currentTime: start, isPlaying: play };
+      }
+    }
+
+    function unmutePlayer() {
+      if (player && typeof player.unMute === 'function') {
+        player.unMute();
+        player.setVolume(100);
+        document.getElementById('unmute-banner').style.display = 'none';
       }
     }
 
     function onPlayerStateChange(event) {
       if (isRemoteAction || !isPlayerReady || !player || typeof player.getCurrentTime !== 'function') return;
       const t = player.getCurrentTime();
-      if (event.data === YT.PlayerState.PLAYING) socket.emit('play', t);
-      else if (event.data === YT.PlayerState.PAUSED) socket.emit('pause', t);
-      else if (event.data === YT.PlayerState.ENDED) socket.emit('video-ended');
+      if (event.data === YT.PlayerState.PLAYING) {
+        document.getElementById('unmute-banner').style.display = 'none';
+        socket.emit('play', t);
+      } else if (event.data === YT.PlayerState.PAUSED) {
+        socket.emit('pause', t);
+      } else if (event.data === YT.PlayerState.ENDED) {
+        socket.emit('video-ended');
+      }
     }
 
     // Sockets de Sala
@@ -526,7 +606,7 @@
       document.getElementById('room-user-count').innerText = users.length;
     });
 
-    // Buscador Superior y Cajón Desplegable
+    // Buscador
     const topSearchInput = document.getElementById('top-search-input');
     const searchDrawer = document.getElementById('search-drawer');
 
