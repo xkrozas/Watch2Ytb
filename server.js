@@ -11,7 +11,6 @@ const io = new Server(server, {
   pingTimeout: 5000
 });
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Estado de cada sala
@@ -23,27 +22,7 @@ function getCurrentVideoTime(room) {
   return room.currentTime + elapsed;
 }
 
-function getAdminRoomsData() {
-  const list = [];
-  for (const roomId in rooms) {
-    const userNames = Object.values(rooms[roomId].users || {}).map((u) => u.name);
-    list.push({
-      id: roomId,
-      users: userNames.length,
-      userList: userNames,
-      videoId: rooms[roomId].videoId,
-      isPlaying: rooms[roomId].isPlaying,
-      queueCount: (rooms[roomId].playlist || []).length
-    });
-  }
-  return list;
-}
-
-function notifyAdmins() {
-  io.to('admin-channel').emit('admin-rooms-data', getAdminRoomsData());
-}
-
-// Reloj maestro de sincronización cada 4 segundos
+// Reloj maestro de sincronización (cada 4 segundos)
 setInterval(() => {
   for (const roomId in rooms) {
     const room = rooms[roomId];
@@ -57,156 +36,130 @@ setInterval(() => {
   }
 }, 4000);
 
-// Extracción rápida de ID de YouTube si es enlace
-function extractYouTubeId(str) {
-  const match = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-  return match ? match[1] : null;
-}
-
 io.on('connection', (socket) => {
   let currentRoom = null;
+  let currentUserName = '';
 
+  // Unirse a sala o crearla
   socket.on('join-room', ({ roomId, username }) => {
     currentRoom = roomId;
+    currentUserName = username || `User-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
     socket.join(roomId);
-
-    const isFirstUser = !rooms[roomId] || Object.keys(rooms[roomId].users || {}).length === 0;
 
     if (!rooms[roomId]) {
       rooms[roomId] = {
         videoId: 'dQw4w9WgXcQ',
+        videoTitle: 'WatchParty - Bienvenido',
         currentTime: 0,
         isPlaying: false,
         playlist: [],
+        history: [],
+        users: {},
         lastUpdated: Date.now(),
-        lastTrackChange: 0,
-        users: {}
+        lastTrackChange: 0
       };
     }
 
-    const cleanName = (username && username.trim()) ? username.trim() : `User-${socket.id.substring(0, 4).toUpperCase()}`;
+    rooms[roomId].users[socket.id] = { name: currentUserName };
 
-    rooms[roomId].users[socket.id] = {
-      name: cleanName,
-      isHost: isFirstUser
-    };
-
-    // Estado inicial de la sala
+    // Enviar estado de la sala al usuario que entra
     socket.emit('sync-init', {
       ...rooms[roomId],
       currentTime: getCurrentVideoTime(rooms[roomId]),
-      isHost: isFirstUser
+      assignedName: currentUserName
     });
 
-    const activeUsers = Object.values(rooms[roomId].users);
-    io.to(roomId).emit('room-users-list', activeUsers);
-    notifyAdmins();
+    // Actualizar participantes
+    io.to(roomId).emit('room-users-updated', Object.values(rooms[roomId].users));
   });
 
-  // --- BUSCADOR BLINDADO ULTRA-RÁPIDO ---
-  socket.on('search-videos', async ({ query }) => {
-    const q = (query || '').trim();
-    if (!q) return socket.emit('search-results', []);
+  // Cambiar nombre de usuario
+  socket.on('change-username', (newName) => {
+    if (currentRoom && rooms[currentRoom] && rooms[currentRoom].users[socket.id]) {
+      rooms[currentRoom].users[socket.id].name = newName.trim() || 'Invitado';
+      io.to(currentRoom).emit('room-users-updated', Object.values(rooms[currentRoom].users));
+    }
+  });
 
-    // 1. Si pegan directamente una URL de YouTube
-    const directId = extractYouTubeId(q);
-    if (directId) {
-      try {
-        const vidInfo = await ytSearch({ videoId: directId });
+  // Chat en vivo
+  socket.on('send-chat', (text) => {
+    if (!currentRoom || !rooms[currentRoom] || !text.trim()) return;
+    const msg = {
+      user: rooms[currentRoom].users[socket.id]?.name || 'Anónimo',
+      text: text.trim(),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    io.to(currentRoom).emit('new-chat-message', msg);
+  });
+
+  // Buscador de vídeos rápido y a prueba de fallos
+  socket.on('search-query', async (query) => {
+    if (!query || !query.trim()) return;
+    const cleanQ = query.trim();
+
+    try {
+      // 1. Detectar si es un enlace directo a un vídeo
+      const videoIdMatch = cleanQ.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      if (videoIdMatch) {
+        const vId = videoIdMatch[1];
+        const info = await ytSearch({ videoId: vId }).catch(() => null);
         return socket.emit('search-results', [{
-          videoId: directId,
-          title: vidInfo.title || 'Vídeo de YouTube',
-          thumbnail: vidInfo.thumbnail || `https://i.ytimg.com/vi/${directId}/hqdefault.jpg`,
-          duration: vidInfo.timestamp || 'Vídeo',
-          author: vidInfo.author ? vidInfo.author.name : 'YouTube'
-        }]);
-      } catch (e) {
-        return socket.emit('search-results', [{
-          videoId: directId,
-          title: 'Vídeo de YouTube',
-          thumbnail: `https://i.ytimg.com/vi/${directId}/hqdefault.jpg`,
-          duration: 'Vídeo',
-          author: 'YouTube'
+          videoId: vId,
+          title: info ? info.title : 'Vídeo de YouTube',
+          thumbnail: info ? info.thumbnail : `https://img.youtube.com/vi/${vId}/hqdefault.jpg`,
+          duration: info ? info.timestamp : '',
+          author: info?.author ? info.author.name : ''
         }]);
       }
-    }
 
-    // 2. Si es una lista de reproducción
-    const listMatch = q.match(/[?&]list=([^#&?]+)/);
-    if (listMatch) {
-      try {
-        const playlistData = await ytSearch({ listId: listMatch[1] });
-        const videos = (playlistData.videos || []).slice(0, 30).map((v) => ({
-          videoId: v.videoId,
-          title: v.title,
-          thumbnail: v.thumbnail,
-          duration: typeof v.duration === 'string' ? v.duration : (v.duration?.timestamp || ''),
-          author: playlistData.author ? playlistData.author.name : 'Playlist'
-        }));
-        return socket.emit('search-results', videos);
-      } catch (e) {}
-    }
-
-    // 3. Búsqueda normal por palabras clave con límite estricto de 4 segundos
-    try {
-      const searchPromise = ytSearch(q);
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 4000));
-      const searchResults = await Promise.race([searchPromise, timeoutPromise]);
-
-      const videos = (searchResults.videos || []).slice(0, 20).map((v) => ({
+      // 2. Búsqueda por texto normal
+      const res = await ytSearch(cleanQ);
+      const results = (res.videos || []).slice(0, 20).map((v) => ({
         videoId: v.videoId,
         title: v.title,
         thumbnail: v.thumbnail,
         duration: v.timestamp || '',
-        author: v.author ? v.author.name : 'YouTube'
+        author: v.author ? v.author.name : ''
       }));
 
-      socket.emit('search-results', videos);
+      socket.emit('search-results', results);
     } catch (err) {
-      console.warn('Error o tiempo agotado en búsqueda:', err.message);
+      console.error('Error en búsqueda:', err);
       socket.emit('search-results', []);
     }
   });
 
-  // --- CHAT EN TIEMPO REAL ---
-  socket.on('send-chat', (text) => {
-    if (!currentRoom || !rooms[currentRoom] || !text.trim()) return;
-    const user = rooms[currentRoom].users[socket.id] || { name: 'Invitado', isHost: false };
-    const now = new Date();
-    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-
-    io.to(currentRoom).emit('new-chat-message', {
-      user: user.name,
-      isHost: user.isHost,
-      text: text.trim().substring(0, 300),
-      time: timeStr
-    });
-  });
-
-  // Controles de vídeo
+  // Control de vídeo
   socket.on('change-video', (video) => {
     if (!currentRoom || !rooms[currentRoom]) return;
-    const videoId = typeof video === 'string' ? video : video.videoId;
-    rooms[currentRoom].videoId = videoId;
-    rooms[currentRoom].currentTime = 0;
-    rooms[currentRoom].isPlaying = true;
-    rooms[currentRoom].lastUpdated = Date.now();
-    io.to(currentRoom).emit('video-changed', videoId);
-    notifyAdmins();
+    const room = rooms[currentRoom];
+
+    // Guardar el anterior en el historial
+    if (room.videoId) {
+      room.history.unshift({ videoId: room.videoId, title: room.videoTitle });
+      if (room.history.length > 25) room.history.pop();
+      io.to(currentRoom).emit('history-updated', room.history);
+    }
+
+    room.videoId = video.videoId;
+    room.videoTitle = video.title || 'Vídeo';
+    room.currentTime = 0;
+    room.isPlaying = true;
+    room.lastUpdated = Date.now();
+
+    io.to(currentRoom).emit('video-changed', { videoId: room.videoId, title: room.videoTitle });
   });
 
-  socket.on('add-to-queue', (video) => {
+  socket.on('add-to-playlist', (video) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     rooms[currentRoom].playlist.push(video);
-    io.to(currentRoom).emit('queue-updated', rooms[currentRoom].playlist);
-    notifyAdmins();
+    io.to(currentRoom).emit('playlist-updated', rooms[currentRoom].playlist);
   });
 
-  socket.on('remove-from-queue', (index) => {
+  socket.on('remove-from-playlist', (index) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     rooms[currentRoom].playlist.splice(index, 1);
-    io.to(currentRoom).emit('queue-updated', rooms[currentRoom].playlist);
-    notifyAdmins();
+    io.to(currentRoom).emit('playlist-updated', rooms[currentRoom].playlist);
   });
 
   socket.on('video-ended', () => {
@@ -217,14 +170,17 @@ io.on('connection', (socket) => {
     room.lastTrackChange = now;
 
     if (room.playlist.length > 0) {
-      const nextVideo = room.playlist.shift();
-      room.videoId = nextVideo.videoId;
+      const next = room.playlist.shift();
+      room.history.unshift({ videoId: room.videoId, title: room.videoTitle });
+      room.videoId = next.videoId;
+      room.videoTitle = next.title;
       room.currentTime = 0;
       room.isPlaying = true;
       room.lastUpdated = Date.now();
-      io.to(currentRoom).emit('video-changed', nextVideo.videoId);
-      io.to(currentRoom).emit('queue-updated', room.playlist);
-      notifyAdmins();
+
+      io.to(currentRoom).emit('video-changed', { videoId: room.videoId, title: room.videoTitle });
+      io.to(currentRoom).emit('playlist-updated', room.playlist);
+      io.to(currentRoom).emit('history-updated', room.history);
     }
   });
 
@@ -234,7 +190,6 @@ io.on('connection', (socket) => {
     rooms[currentRoom].currentTime = time;
     rooms[currentRoom].lastUpdated = Date.now();
     socket.to(currentRoom).emit('play', time);
-    notifyAdmins();
   });
 
   socket.on('pause', (time) => {
@@ -243,7 +198,6 @@ io.on('connection', (socket) => {
     rooms[currentRoom].currentTime = time;
     rooms[currentRoom].lastUpdated = Date.now();
     socket.to(currentRoom).emit('pause', time);
-    notifyAdmins();
   });
 
   socket.on('seek', (time) => {
@@ -253,49 +207,15 @@ io.on('connection', (socket) => {
     socket.to(currentRoom).emit('seek', time);
   });
 
-  socket.on('request-sync', () => {
-    if (!currentRoom || !rooms[currentRoom]) return;
-    const room = rooms[currentRoom];
-    socket.emit('heartbeat-sync', {
-      currentTime: getCurrentVideoTime(room),
-      isPlaying: room.isPlaying,
-      videoId: room.videoId,
-      force: true
-    });
-  });
-
-  // Admin
-  socket.on('admin-auth', (password) => {
-    if (password === ADMIN_PASSWORD) {
-      socket.join('admin-channel');
-      socket.emit('admin-auth-success');
-      socket.emit('admin-rooms-data', getAdminRoomsData());
-    } else {
-      socket.emit('admin-auth-fail');
-    }
-  });
-
-  socket.on('admin-delete-room', ({ password, roomId }) => {
-    if (password !== ADMIN_PASSWORD) return;
-    if (rooms[roomId]) {
-      io.to(roomId).emit('room-deleted');
-      io.socketsLeave(roomId);
-      delete rooms[roomId];
-      notifyAdmins();
-    }
-  });
-
   socket.on('disconnect', () => {
     if (currentRoom && rooms[currentRoom] && rooms[currentRoom].users) {
       delete rooms[currentRoom].users[socket.id];
-      const activeUsers = Object.values(rooms[currentRoom].users);
-      io.to(currentRoom).emit('room-users-list', activeUsers);
+      io.to(currentRoom).emit('room-users-updated', Object.values(rooms[currentRoom].users));
     }
-    notifyAdmins();
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Servidor activo en puerto ${PORT}`);
+  console.log(`Servidor W2G Clone listo en puerto ${PORT}`);
 });
