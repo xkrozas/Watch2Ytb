@@ -2,14 +2,14 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>WatchParty - YouTube Sincronizado</title>
+  <title>WatchParty - Con Navegador de Canales</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/socket.io/socket.io.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: #0f0f0f; color: #fff; padding: 15px; }
 
-    /* Modal de Bienvenida / Crear Sala */
+    /* Modal de Bienvenida */
     #join-modal-overlay {
       position: fixed; inset: 0; background: rgba(0, 0, 0, 0.88); z-index: 9999;
       display: flex; justify-content: center; align-items: center; padding: 20px;
@@ -28,7 +28,7 @@
     .modal-card input:focus { outline: 1px solid #ff0000; }
     .modal-card button { width: 100%; padding: 12px; font-size: 15px; border-radius: 8px; }
 
-    /* Estructura Principal */
+    /* Cabecera Principal */
     header { display: flex; justify-content: space-between; align-items: center; max-width: 1400px; margin: 0 auto 15px; flex-wrap: wrap; gap: 10px; }
     h1 { font-size: 1.3rem; color: #ff0000; display: flex; align-items: center; gap: 8px; }
 
@@ -43,14 +43,16 @@
     .btn-secondary { background: #272727; color: #fff; }
     .btn-secondary:hover { background: #3f3f3f; }
 
-    .main-layout { display: grid; grid-template-columns: 1fr 380px; gap: 20px; max-width: 1400px; margin: 0 auto; }
+    /* Distribución en 2 Columnas */
+    .main-layout { display: grid; grid-template-columns: 1fr 400px; gap: 20px; max-width: 1400px; margin: 0 auto; }
     @media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
 
     .player-section { display: flex; flex-direction: column; gap: 10px; }
     .player-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; overflow: hidden; }
     #player { width: 100%; height: 100%; }
 
-    .sidebar { background: #1a1a1a; border-radius: 10px; display: flex; flex-direction: column; height: calc(100vh - 90px); min-height: 500px; }
+    /* Barra lateral */
+    .sidebar { background: #1a1a1a; border-radius: 10px; display: flex; flex-direction: column; height: calc(100vh - 90px); min-height: 520px; }
     .tabs { display: flex; border-bottom: 1px solid #2a2a2a; }
     .tab-btn { flex: 1; background: transparent; border-radius: 0; padding: 12px 6px; border-bottom: 2px solid transparent; color: #aaa; font-size: 12px; }
     .tab-btn.active { color: #fff; border-bottom: 2px solid #ff0000; font-weight: bold; }
@@ -62,12 +64,29 @@
     .search-bar input { flex: 1; padding: 9px 12px; border-radius: 6px; border: 1px solid #333; background: #0f0f0f; color: white; font-size: 13px; }
     .item-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 
+    /* Tarjeta de Canal Encontrado */
+    .channel-header-box { display: flex; align-items: center; gap: 12px; background: #262626; padding: 12px; border-radius: 8px; border-left: 4px solid #ff0000; margin-bottom: 10px; }
+    .channel-header-box img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
+    .channel-header-box .info { flex: 1; min-width: 0; }
+    .channel-header-box .name { font-size: 14px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .channel-header-box .subs { font-size: 11px; color: #aaa; }
+
+    /* Barra de navegación dentro de un canal */
+    .channel-nav-bar { display: none; align-items: center; gap: 8px; background: #222; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; }
+    .channel-nav-bar span { font-size: 13px; font-weight: bold; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Tarjetas de Vídeos */
     .video-card { display: flex; gap: 10px; background: #222; border-radius: 6px; padding: 8px; align-items: center; }
-    .video-card img { width: 90px; height: 50px; object-fit: cover; border-radius: 4px; }
+    .video-card img { width: 90px; height: 50px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
     .video-info { flex: 1; min-width: 0; }
     .video-info .title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .video-info .channel { font-size: 11px; color: #aaa; }
-    .card-actions { display: flex; flex-direction: column; gap: 4px; }
+    .video-info .meta { font-size: 11px; color: #888; margin-top: 2px; }
+
+    /* Enlace clickeable para abrir canal del YouTuber */
+    .author-link { color: #4fc3f7; text-decoration: none; cursor: pointer; font-weight: 500; }
+    .author-link:hover { text-decoration: underline; color: #81d4fa; }
+
+    .card-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
     .card-actions button { padding: 4px 8px; font-size: 11px; }
 
     /* Lista de Personas */
@@ -76,11 +95,12 @@
     .you-tag { font-size: 11px; background: #ff0000; padding: 2px 6px; border-radius: 4px; margin-left: auto; }
 
     .empty-state { text-align: center; color: #777; margin-top: 40px; font-size: 13px; }
+    .playlist-banner { background: #1b3a4b; border: 1px solid #0077b6; padding: 10px; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
   </style>
 </head>
 <body>
 
-  <!-- PANTALLA MODAL DE BIENVENIDA / ENTRADA -->
+  <!-- MODAL DE BIENVENIDA -->
   <div id="join-modal-overlay">
     <div class="modal-card">
       <h2 id="modal-title">🎬 WatchParty</h2>
@@ -120,11 +140,19 @@
       <!-- Pestaña Buscar -->
       <div id="tab-search" class="tab-content active">
         <div class="search-bar">
-          <input type="text" id="search-input" placeholder="Buscar canciones o pegar enlace...">
+          <input type="text" id="search-input" placeholder="Buscar vídeos, YouTubers o pegar enlace/playlist...">
           <button id="search-btn">Buscar</button>
         </div>
+
+        <!-- Barra de navegación cuando se está dentro del canal -->
+        <div id="channel-nav" class="channel-nav-bar">
+          <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exitChannelView()">⬅ Volver</button>
+          <span id="channel-nav-title">Canal</span>
+        </div>
+
+        <!-- Contenedor donde se cargan canales y vídeos -->
         <div class="item-list" id="search-results">
-          <div class="empty-state">Busca un vídeo para reproducirlo o añadirlo a la cola.</div>
+          <div class="empty-state">Busca un YouTuber, una canción o pega un enlace.</div>
         </div>
       </div>
 
@@ -137,9 +165,7 @@
 
       <!-- Pestaña Personas -->
       <div id="tab-users" class="tab-content">
-        <div class="item-list" id="users-list">
-          <!-- Usuarios conectados -->
-        </div>
+        <div class="item-list" id="users-list"></div>
       </div>
     </div>
   </div>
@@ -156,7 +182,10 @@
     let lastReportedTime = 0;
     let isJoined = false;
 
-    // Configuración del texto del Modal según si es sala nueva o invitación
+    // Memoria caché para poder volver atrás en la búsqueda
+    let lastSearchResultsHTML = null;
+
+    // Configuración del modal
     const modalTitle = document.getElementById('modal-title');
     const modalDesc = document.getElementById('modal-desc');
     const enterBtn = document.getElementById('enter-btn');
@@ -174,7 +203,6 @@
       enterBtn.innerText = "🚀 Crear sala y entrar";
     }
 
-    // Acción al pulsar entrar
     enterBtn.addEventListener('click', proceedJoin);
     usernameInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') proceedJoin();
@@ -190,18 +218,15 @@
       myUsername = name;
       localStorage.setItem('wp_username', myUsername);
 
-      // Si no había sala en la URL, generar una nueva
       if (!roomId) {
         roomId = Math.random().toString(36).substring(2, 9);
         const newUrl = `${window.location.pathname}?room=${roomId}`;
         window.history.pushState({ path: newUrl }, '', newUrl);
       }
 
-      // Ocultar modal
       document.getElementById('join-modal-overlay').style.display = 'none';
       isJoined = true;
 
-      // Iniciar YouTube API y unirse a la sala
       initYouTube();
       if (socket.connected) {
         socket.emit('join-room', { roomId, username: myUsername });
@@ -214,7 +239,7 @@
       remoteTimeout = setTimeout(() => { isRemoteAction = false; }, duration);
     }
 
-    // --- CONEXIÓN SOCKET ---
+    // --- CONEXIÓN SOCKET Y ROBUSTEZ ---
     const statusBadge = document.getElementById('status-badge');
 
     socket.on('connect', () => {
@@ -235,19 +260,17 @@
       statusBadge.innerText = '🟡 Reconectando...';
     });
 
-    // Actualización de lista de personas
     socket.on('room-users-list', (users) => {
       document.getElementById('users-count').innerText = users.length;
       statusBadge.innerText = `🟢 En línea (${users.length})`;
 
       const list = document.getElementById('users-list');
       list.innerHTML = '';
-
       let selfHighlighted = false;
+
       users.forEach((name) => {
         const div = document.createElement('div');
         div.className = 'user-item';
-
         const isMe = (!selfHighlighted && name === myUsername);
         if (isMe) selfHighlighted = true;
 
@@ -260,7 +283,6 @@
       });
     });
 
-    // Cargar API de YouTube
     function initYouTube() {
       if (window.YT) return;
       const tag = document.createElement('script');
@@ -377,7 +399,8 @@
       setTimeout(() => { btn.innerText = '🔄 Sincronizar'; }, 1500);
     });
 
-    // Buscador
+    // --- BÚSQUEDA Y NAVEGACIÓN POR CANALES ---
+
     document.getElementById('search-btn').addEventListener('click', performSearch);
     document.getElementById('search-input').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') performSearch();
@@ -386,34 +409,127 @@
     function performSearch() {
       const q = document.getElementById('search-input').value.trim();
       if (!q) return;
-      document.getElementById('search-results').innerHTML = '<div class="empty-state">Buscando vídeos...</div>';
+      exitChannelView();
+      document.getElementById('search-results').innerHTML = '<div class="empty-state">Buscando vídeos y canales...</div>';
       socket.emit('search-videos', q);
     }
 
-    socket.on('search-results', (results) => {
+    socket.on('search-results', ({ isPlaylist, playlistTitle, videos, channels }) => {
       const container = document.getElementById('search-results');
       container.innerHTML = '';
-      if (!results || results.length === 0) {
-        container.innerHTML = '<div class="empty-state">No se encontraron resultados.</div>';
+
+      // Si es una Playlist completa
+      if (isPlaylist && videos.length > 0) {
+        const banner = document.createElement('div');
+        banner.className = 'playlist-banner';
+        banner.innerHTML = `
+          <div>
+            <b style="font-size: 13px;">📑 ${playlistTitle}</b>
+            <div style="font-size: 11px; opacity: 0.8;">${videos.length} vídeos</div>
+          </div>
+          <button id="add-all-playlist-btn">➕ Añadir toda</button>
+        `;
+        container.appendChild(banner);
+
+        banner.querySelector('#add-all-playlist-btn').addEventListener('click', () => {
+          socket.emit('add-multiple-to-queue', videos);
+          alert(`¡Se han añadido los ${videos.length} vídeos de la lista a la cola!`);
+        });
+      }
+
+      // Si se encontraron canales de YouTubers relevantes
+      if (channels && channels.length > 0) {
+        channels.forEach((c) => {
+          const card = document.createElement('div');
+          card.className = 'channel-header-box';
+          card.innerHTML = `
+            <img src="${c.avatar || 'https://www.youtube.com/s/desktop/f71295b7/img/profile_placeholder_default.png'}" alt="">
+            <div class="info">
+              <div class="name">${c.name}</div>
+              <div class="subs">${c.subCount || ''} ${c.videoCount ? '• ' + c.videoCount + ' vídeos' : ''}</div>
+            </div>
+            <button onclick="browseChannel('${c.name.replace(/'/g, "\\'")}')">📺 Explorar canal</button>
+          `;
+          container.appendChild(card);
+        });
+      }
+
+      if (!videos || videos.length === 0) {
+        if (!channels || channels.length === 0) {
+          container.innerHTML = '<div class="empty-state">No se encontraron resultados.</div>';
+        }
         return;
       }
-      results.forEach((v) => {
-        const div = document.createElement('div');
-        div.className = 'video-card';
-        div.innerHTML = `
-          <img src="${v.thumbnail}" alt="">
-          <div class="video-info">
-            <div class="title" title="${v.title}">${v.title}</div>
-            <div class="channel">${v.author} • ${v.duration}</div>
+
+      // Listado de vídeos
+      videos.forEach((v) => {
+        container.appendChild(createVideoCard(v));
+      });
+
+      // Guardar el HTML para poder volver atrás si entra a un canal
+      lastSearchResultsHTML = container.innerHTML;
+    });
+
+    // Función para crear tarjeta de vídeo interactiva
+    function createVideoCard(v) {
+      const div = document.createElement('div');
+      div.className = 'video-card';
+      const cleanAuthor = (v.author || '').replace(/'/g, "\\'");
+
+      div.innerHTML = `
+        <img src="${v.thumbnail}" alt="">
+        <div class="video-info">
+          <div class="title" title="${v.title}">${v.title}</div>
+          <div class="meta">
+            <span class="author-link" onclick="browseChannel('${cleanAuthor}')" title="Ver vídeos de este canal">
+              👤 ${v.author}
+            </span>
+            ${v.duration ? ' • ' + v.duration : ''}
+            ${v.views ? ' • ' + v.views + ' vistas' : ''}
           </div>
-          <div class="card-actions">
-            <button onclick='playNow(${JSON.stringify(v)})'>▶ Ver</button>
-            <button class="btn-secondary" onclick='addToQueue(${JSON.stringify(v)})'>+ Cola</button>
-          </div>
-        `;
-        container.appendChild(div);
+        </div>
+        <div class="card-actions">
+          <button onclick='playNow(${JSON.stringify(v)})'>▶ Ver</button>
+          <button class="btn-secondary" onclick='addToQueue(${JSON.stringify(v)})'>+ Cola</button>
+        </div>
+      `;
+      return div;
+    }
+
+    // Navegar dentro del canal
+    function browseChannel(channelName) {
+      const container = document.getElementById('search-results');
+      if (!lastSearchResultsHTML) {
+        lastSearchResultsHTML = container.innerHTML;
+      }
+
+      document.getElementById('channel-nav').style.display = 'flex';
+      document.getElementById('channel-nav-title').innerText = `📺 Canal: ${channelName}`;
+      container.innerHTML = `<div class="empty-state">Cargando vídeos de <b>${channelName}</b>...</div>`;
+
+      socket.emit('get-channel-videos', channelName);
+    }
+
+    socket.on('channel-videos-result', ({ channelName, videos }) => {
+      const container = document.getElementById('search-results');
+      container.innerHTML = '';
+
+      if (!videos || videos.length === 0) {
+        container.innerHTML = `<div class="empty-state">No se pudieron cargar los vídeos de ${channelName}.</div>`;
+        return;
+      }
+
+      videos.forEach((v) => {
+        container.appendChild(createVideoCard(v));
       });
     });
+
+    function exitChannelView() {
+      document.getElementById('channel-nav').style.display = 'none';
+      if (lastSearchResultsHTML) {
+        document.getElementById('search-results').innerHTML = lastSearchResultsHTML;
+      }
+    }
 
     function playNow(video) { socket.emit('change-video', video.videoId); }
     function addToQueue(video) { socket.emit('add-to-queue', video); }
@@ -434,7 +550,7 @@
           <img src="${v.thumbnail}" alt="">
           <div class="video-info">
             <div class="title">${v.title}</div>
-            <div class="channel">${v.author || ''}</div>
+            <div class="meta">${v.author || ''}</div>
           </div>
           <div class="card-actions">
             <button class="btn-secondary" onclick="removeQueueItem(${index})">❌</button>
