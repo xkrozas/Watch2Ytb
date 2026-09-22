@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>WatchParty - Con Navegador de Canales</title>
+  <title>WatchParty - Explorador Avanzado</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/socket.io/socket.io.js"></script>
   <style>
@@ -43,7 +43,6 @@
     .btn-secondary { background: #272727; color: #fff; }
     .btn-secondary:hover { background: #3f3f3f; }
 
-    /* Distribución en 2 Columnas */
     .main-layout { display: grid; grid-template-columns: 1fr 400px; gap: 20px; max-width: 1400px; margin: 0 auto; }
     @media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
 
@@ -64,16 +63,18 @@
     .search-bar input { flex: 1; padding: 9px 12px; border-radius: 6px; border: 1px solid #333; background: #0f0f0f; color: white; font-size: 13px; }
     .item-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 
-    /* Tarjeta de Canal Encontrado */
+    /* Tarjeta de Canal */
     .channel-header-box { display: flex; align-items: center; gap: 12px; background: #262626; padding: 12px; border-radius: 8px; border-left: 4px solid #ff0000; margin-bottom: 10px; }
     .channel-header-box img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
     .channel-header-box .info { flex: 1; min-width: 0; }
     .channel-header-box .name { font-size: 14px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .channel-header-box .subs { font-size: 11px; color: #aaa; }
 
-    /* Barra de navegación dentro de un canal */
-    .channel-nav-bar { display: none; align-items: center; gap: 8px; background: #222; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; }
-    .channel-nav-bar span { font-size: 13px; font-weight: bold; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Barra superior dentro del canal */
+    .channel-nav-bar { display: none; flex-direction: column; gap: 8px; background: #222; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+    .channel-nav-top { display: flex; align-items: center; gap: 8px; }
+    .channel-nav-top span { font-size: 13px; font-weight: bold; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .channel-filter-input { width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #3a3a3a; background: #111; color: white; font-size: 12px; }
 
     /* Tarjetas de Vídeos */
     .video-card { display: flex; gap: 10px; background: #222; border-radius: 6px; padding: 8px; align-items: center; }
@@ -82,12 +83,14 @@
     .video-info .title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .video-info .meta { font-size: 11px; color: #888; margin-top: 2px; }
 
-    /* Enlace clickeable para abrir canal del YouTuber */
     .author-link { color: #4fc3f7; text-decoration: none; cursor: pointer; font-weight: 500; }
     .author-link:hover { text-decoration: underline; color: #81d4fa; }
 
     .card-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
     .card-actions button { padding: 4px 8px; font-size: 11px; }
+
+    .load-more-btn { width: 100%; padding: 10px; margin-top: 10px; background: #2a2a2a; border-radius: 6px; font-size: 12px; }
+    .load-more-btn:hover { background: #3a3a3a; }
 
     /* Lista de Personas */
     .user-item { display: flex; align-items: center; gap: 10px; background: #222; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
@@ -140,17 +143,20 @@
       <!-- Pestaña Buscar -->
       <div id="tab-search" class="tab-content active">
         <div class="search-bar">
-          <input type="text" id="search-input" placeholder="Buscar vídeos, YouTubers o pegar enlace/playlist...">
+          <input type="text" id="search-input" placeholder="Buscar canciones, YouTubers o pegar enlace...">
           <button id="search-btn">Buscar</button>
         </div>
 
-        <!-- Barra de navegación cuando se está dentro del canal -->
+        <!-- Barra de navegación cuando se entra al canal -->
         <div id="channel-nav" class="channel-nav-bar">
-          <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exitChannelView()">⬅ Volver</button>
-          <span id="channel-nav-title">Canal</span>
+          <div class="channel-nav-top">
+            <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exitChannelView()">⬅ Volver</button>
+            <span id="channel-nav-title">Canal</span>
+          </div>
+          <input type="text" id="channel-filter-input" class="channel-filter-input" placeholder="🔍 Filtrar entre los vídeos de este canal...">
         </div>
 
-        <!-- Contenedor donde se cargan canales y vídeos -->
+        <!-- Contenedor con scroll infinito -->
         <div class="item-list" id="search-results">
           <div class="empty-state">Busca un YouTuber, una canción o pega un enlace.</div>
         </div>
@@ -182,10 +188,16 @@
     let lastReportedTime = 0;
     let isJoined = false;
 
-    // Memoria caché para poder volver atrás en la búsqueda
+    // Memoria para paginación y exploración de canales
+    let currentSearchQuery = '';
+    let currentSearchPage = 1;
+    let isLoadingMore = false;
+    let canLoadMore = false;
+    let isInsideChannel = false;
+    let currentChannelVideos = [];
+    let knownVideoIds = new Set();
     let lastSearchResultsHTML = null;
 
-    // Configuración del modal
     const modalTitle = document.getElementById('modal-title');
     const modalDesc = document.getElementById('modal-desc');
     const enterBtn = document.getElementById('enter-btn');
@@ -399,26 +411,67 @@
       setTimeout(() => { btn.innerText = '🔄 Sincronizar'; }, 1500);
     });
 
-    // --- BÚSQUEDA Y NAVEGACIÓN POR CANALES ---
+    // --- BÚSQUEDA Y SCROLL INFINITO ---
+    const searchResultsContainer = document.getElementById('search-results');
 
-    document.getElementById('search-btn').addEventListener('click', performSearch);
+    document.getElementById('search-btn').addEventListener('click', startNewSearch);
     document.getElementById('search-input').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') performSearch();
+      if (e.key === 'Enter') startNewSearch();
     });
 
-    function performSearch() {
+    function startNewSearch() {
       const q = document.getElementById('search-input').value.trim();
       if (!q) return;
+
       exitChannelView();
-      document.getElementById('search-results').innerHTML = '<div class="empty-state">Buscando vídeos y canales...</div>';
-      socket.emit('search-videos', q);
+      currentSearchQuery = q;
+      currentSearchPage = 1;
+      knownVideoIds.clear();
+      isLoadingMore = false;
+      canLoadMore = false;
+
+      searchResultsContainer.innerHTML = '<div class="empty-state">Buscando vídeos y canales...</div>';
+      socket.emit('search-videos', { query: q, page: 1 });
     }
 
-    socket.on('search-results', ({ isPlaylist, playlistTitle, videos, channels }) => {
-      const container = document.getElementById('search-results');
-      container.innerHTML = '';
+    // Scroll infinito en la caja de resultados
+    searchResultsContainer.addEventListener('scroll', () => {
+      if (isInsideChannel) return;
+      if (searchResultsContainer.scrollTop + searchResultsContainer.clientHeight >= searchResultsContainer.scrollHeight - 60) {
+        if (!isLoadingMore && canLoadMore && currentSearchQuery) {
+          loadMoreSearchResults();
+        }
+      }
+    });
 
-      // Si es una Playlist completa
+    function loadMoreSearchResults() {
+      isLoadingMore = true;
+      currentSearchPage++;
+
+      const loader = document.createElement('div');
+      loader.id = 'loading-more-msg';
+      loader.className = 'empty-state';
+      loader.innerText = 'Cargando más vídeos...';
+      searchResultsContainer.appendChild(loader);
+
+      socket.emit('search-videos', { query: currentSearchQuery, page: currentSearchPage });
+    }
+
+    socket.on('search-results', ({ isPlaylist, playlistTitle, videos, channels, page, hasMore }) => {
+      isLoadingMore = false;
+      canLoadMore = hasMore;
+
+      const loader = document.getElementById('loading-more-msg');
+      if (loader) loader.remove();
+
+      const loadMoreBtnOld = document.getElementById('btn-manual-load-more');
+      if (loadMoreBtnOld) loadMoreBtnOld.remove();
+
+      if (page === 1) {
+        searchResultsContainer.innerHTML = '';
+      }
+
+      // Banner de Playlist
       if (isPlaylist && videos.length > 0) {
         const banner = document.createElement('div');
         banner.className = 'playlist-banner';
@@ -429,7 +482,7 @@
           </div>
           <button id="add-all-playlist-btn">➕ Añadir toda</button>
         `;
-        container.appendChild(banner);
+        searchResultsContainer.appendChild(banner);
 
         banner.querySelector('#add-all-playlist-btn').addEventListener('click', () => {
           socket.emit('add-multiple-to-queue', videos);
@@ -437,8 +490,8 @@
         });
       }
 
-      // Si se encontraron canales de YouTubers relevantes
-      if (channels && channels.length > 0) {
+      // Canales encontrados (solo en la primera página)
+      if (page === 1 && channels && channels.length > 0) {
         channels.forEach((c) => {
           const card = document.createElement('div');
           card.className = 'channel-header-box';
@@ -448,40 +501,54 @@
               <div class="name">${c.name}</div>
               <div class="subs">${c.subCount || ''} ${c.videoCount ? '• ' + c.videoCount + ' vídeos' : ''}</div>
             </div>
-            <button onclick="browseChannel('${c.name.replace(/'/g, "\\'")}')">📺 Explorar canal</button>
+            <button onclick="browseChannel('${c.name.replace(/'/g, "\\'")}', '${c.url || ''}')">📺 Explorar canal</button>
           `;
-          container.appendChild(card);
+          searchResultsContainer.appendChild(card);
         });
       }
 
-      if (!videos || videos.length === 0) {
-        if (!channels || channels.length === 0) {
-          container.innerHTML = '<div class="empty-state">No se encontraron resultados.</div>';
+      // Añadir vídeos sin repetir
+      let addedCount = 0;
+      videos.forEach((v) => {
+        if (!knownVideoIds.has(v.videoId)) {
+          knownVideoIds.add(v.videoId);
+          searchResultsContainer.appendChild(createVideoCard(v));
+          addedCount++;
         }
+      });
+
+      if (page === 1 && addedCount === 0 && (!channels || channels.length === 0)) {
+        searchResultsContainer.innerHTML = '<div class="empty-state">No se encontraron resultados.</div>';
         return;
       }
 
-      // Listado de vídeos
-      videos.forEach((v) => {
-        container.appendChild(createVideoCard(v));
-      });
+      // Botón manual de respaldo para cargar más
+      if (hasMore) {
+        const btn = document.createElement('button');
+        btn.id = 'btn-manual-load-more';
+        btn.className = 'btn-secondary load-more-btn';
+        btn.innerText = '➕ Cargar más vídeos';
+        btn.onclick = loadMoreSearchResults;
+        searchResultsContainer.appendChild(btn);
+      }
 
-      // Guardar el HTML para poder volver atrás si entra a un canal
-      lastSearchResultsHTML = container.innerHTML;
+      if (!isInsideChannel) {
+        lastSearchResultsHTML = searchResultsContainer.innerHTML;
+      }
     });
 
-    // Función para crear tarjeta de vídeo interactiva
     function createVideoCard(v) {
       const div = document.createElement('div');
       div.className = 'video-card';
       const cleanAuthor = (v.author || '').replace(/'/g, "\\'");
+      const cleanAuthorUrl = (v.authorUrl || '').replace(/'/g, "\\'");
 
       div.innerHTML = `
         <img src="${v.thumbnail}" alt="">
         <div class="video-info">
           <div class="title" title="${v.title}">${v.title}</div>
           <div class="meta">
-            <span class="author-link" onclick="browseChannel('${cleanAuthor}')" title="Ver vídeos de este canal">
+            <span class="author-link" onclick="browseChannel('${cleanAuthor}', '${cleanAuthorUrl}')" title="Ver vídeos oficiales de este canal">
               👤 ${v.author}
             </span>
             ${v.duration ? ' • ' + v.duration : ''}
@@ -496,38 +563,61 @@
       return div;
     }
 
-    // Navegar dentro del canal
-    function browseChannel(channelName) {
-      const container = document.getElementById('search-results');
-      if (!lastSearchResultsHTML) {
-        lastSearchResultsHTML = container.innerHTML;
+    // --- EXPLORACIÓN DE CANALES OFICIALES (HASTA 100 VÍDEOS) ---
+    function browseChannel(channelName, channelUrl = '') {
+      if (!isInsideChannel && searchResultsContainer.innerHTML) {
+        lastSearchResultsHTML = searchResultsContainer.innerHTML;
       }
 
+      isInsideChannel = true;
       document.getElementById('channel-nav').style.display = 'flex';
-      document.getElementById('channel-nav-title').innerText = `📺 Canal: ${channelName}`;
-      container.innerHTML = `<div class="empty-state">Cargando vídeos de <b>${channelName}</b>...</div>`;
+      document.getElementById('channel-nav-title').innerText = `📺 Canal Oficial: ${channelName}`;
+      document.getElementById('channel-filter-input').value = '';
+      searchResultsContainer.innerHTML = `<div class="empty-state">Descargando catálogo oficial de <b>${channelName}</b>...</div>`;
 
-      socket.emit('get-channel-videos', channelName);
+      socket.emit('get-channel-videos', { channelName, channelUrl });
     }
 
     socket.on('channel-videos-result', ({ channelName, videos }) => {
-      const container = document.getElementById('search-results');
-      container.innerHTML = '';
+      currentChannelVideos = videos || [];
+      renderChannelVideos(currentChannelVideos);
+    });
 
-      if (!videos || videos.length === 0) {
-        container.innerHTML = `<div class="empty-state">No se pudieron cargar los vídeos de ${channelName}.</div>`;
+    function renderChannelVideos(videosToRender) {
+      searchResultsContainer.innerHTML = '';
+
+      if (!videosToRender || videosToRender.length === 0) {
+        searchResultsContainer.innerHTML = `<div class="empty-state">No se encontraron vídeos oficiales en este canal.</div>`;
         return;
       }
 
-      videos.forEach((v) => {
-        container.appendChild(createVideoCard(v));
+      const countBadge = document.createElement('div');
+      countBadge.style.cssText = 'font-size: 11px; color: #aaa; margin-bottom: 5px; text-align: right;';
+      countBadge.innerText = `Mostrando ${videosToRender.length} vídeos oficiales`;
+      searchResultsContainer.appendChild(countBadge);
+
+      videosToRender.forEach((v) => {
+        searchResultsContainer.appendChild(createVideoCard(v));
       });
+    }
+
+    // Buscador interactivo en vivo dentro del canal
+    document.getElementById('channel-filter-input').addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase().trim();
+      if (!term) {
+        renderChannelVideos(currentChannelVideos);
+        return;
+      }
+
+      const filtered = currentChannelVideos.filter(v => v.title.toLowerCase().includes(term));
+      renderChannelVideos(filtered);
     });
 
     function exitChannelView() {
+      isInsideChannel = false;
       document.getElementById('channel-nav').style.display = 'none';
       if (lastSearchResultsHTML) {
-        document.getElementById('search-results').innerHTML = lastSearchResultsHTML;
+        searchResultsContainer.innerHTML = lastSearchResultsHTML;
       }
     }
 
