@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <title>WatchParty - Explorador Avanzado</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Favicon para eliminar el error 404 en consola -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
   <script src="/socket.io/socket.io.js"></script>
-  <!-- Precargamos la API de YouTube desde el inicio para evitar carreras de carga -->
   <script src="https://www.youtube.com/iframe_api"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -183,18 +184,16 @@
 
     const socket = io();
 
-    // ESTADO DEL REPRODUCTOR Y CONTROL DE SEGURIDAD
     let player = null;
     let isPlayerReady = false;
     let isYTReady = false;
     let isJoined = false;
-    let pendingVideoLoad = null; // Cola de espera si la orden llega antes de que el player esté listo
+    let pendingVideoLoad = null;
 
     let isRemoteAction = false;
     let remoteTimeout;
     let lastReportedTime = 0;
 
-    // Memoria para paginación y búsqueda
     let currentSearchQuery = '';
     let currentSearchPage = 1;
     let isLoadingMore = false;
@@ -259,10 +258,8 @@
       remoteTimeout = setTimeout(() => { isRemoteAction = false; }, duration);
     }
 
-    // --- REPRODUCTOR SEGURO ANTI-CRASH ---
     window.onYouTubeIframeAPIReady = function() {
       isYTReady = true;
-      // Si la orden de inicialización llegó antes que la librería de YouTube:
       if (pendingVideoLoad && !player) {
         createPlayerInstance(pendingVideoLoad.videoId, pendingVideoLoad.currentTime, pendingVideoLoad.isPlaying);
       }
@@ -291,14 +288,12 @@
 
     function onPlayerReady(event) {
       isPlayerReady = true;
-      // Si había un cambio de vídeo pendiente mientras se creaba el iframe:
       if (pendingVideoLoad) {
         safeLoadVideo(pendingVideoLoad.videoId, pendingVideoLoad.currentTime, pendingVideoLoad.isPlaying);
         pendingVideoLoad = null;
       }
     }
 
-    // Funciones que NUNCA fallan aunque el reproductor esté cargando
     function safeLoadVideo(videoId, startTime = 0, shouldPlay = true) {
       if (isPlayerReady && player && typeof player.loadVideoById === 'function') {
         setRemoteAction(2000);
@@ -335,7 +330,7 @@
       }
     }
 
-    // --- TEMPORIZADOR DE SEGURIDAD (ANTI-BLOQUEOS) ---
+    // --- TEMPORIZADOR DE SEGURIDAD (12 SEGUNDOS DE MARGEN) ---
     function startSearchTimeout() {
       clearTimeout(searchTimeoutTimer);
       searchTimeoutTimer = setTimeout(() => {
@@ -351,7 +346,7 @@
             </div>
           `;
         }
-      }, 7500);
+      }, 12000);
     }
 
     function clearSearchTimeout() {
@@ -366,7 +361,6 @@
       }
     }
 
-    // --- CONEXIÓN SOCKET Y RECONEXIÓN ---
     const statusBadge = document.getElementById('status-badge');
 
     socket.on('connect', () => {
@@ -423,7 +417,6 @@
       });
     });
 
-    // Sincronización Inicial recibida del Servidor
     socket.on('sync-init', (data) => {
       if (!player) {
         createPlayerInstance(data.videoId, data.currentTime, data.isPlaying);
@@ -482,7 +475,6 @@
       }
     });
 
-    // Control remoto vía sockets
     socket.on('play', (time) => {
       if (time && isPlayerReady && player && typeof player.getCurrentTime === 'function') {
         if (Math.abs(player.getCurrentTime() - time) > 1.5) safeSeek(time);
@@ -519,7 +511,7 @@
       setTimeout(() => { btn.innerText = '🔄 Sincronizar'; }, 1500);
     });
 
-    // --- BÚSQUEDA Y SCROLL ---
+    // --- BÚSQUEDA ---
     document.getElementById('search-btn').addEventListener('click', startNewSearch);
     document.getElementById('search-input').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') startNewSearch();
@@ -652,7 +644,7 @@
         <div class="video-info">
           <div class="title" title="${v.title}">${v.title}</div>
           <div class="meta">
-            <span class="author-link" onclick="browseChannel('${cleanAuthor}', '${cleanAuthorUrl}')" title="Ver vídeos oficiales de este canal">
+            <span class="author-link" onclick="browseChannel('${cleanAuthor}', '${cleanAuthorUrl}')" title="Ver vídeos de este canal">
               👤 ${v.author}
             </span>
             ${v.duration ? ' • ' + v.duration : ''}
@@ -676,9 +668,9 @@
       isInsideChannel = true;
       currentChannelName = channelName;
       document.getElementById('channel-nav').style.display = 'flex';
-      document.getElementById('channel-nav-title').innerText = `📺 Canal Oficial: ${channelName}`;
+      document.getElementById('channel-nav-title').innerText = `📺 Canal: ${channelName}`;
       document.getElementById('channel-filter-input').value = '';
-      searchResultsContainer.innerHTML = `<div class="empty-state">Descargando catálogo oficial de <b>${channelName}</b>...</div>`;
+      searchResultsContainer.innerHTML = `<div class="empty-state">Cargando vídeos de <b>${channelName}</b>...</div>`;
 
       startSearchTimeout();
       socket.emit('get-channel-videos', { channelName, channelUrl });
@@ -694,13 +686,13 @@
       searchResultsContainer.innerHTML = '';
 
       if (!videosToRender || videosToRender.length === 0) {
-        searchResultsContainer.innerHTML = `<div class="empty-state">No se encontraron vídeos oficiales en este canal.</div>`;
+        searchResultsContainer.innerHTML = `<div class="empty-state">No se pudieron cargar vídeos de este canal.</div>`;
         return;
       }
 
       const countBadge = document.createElement('div');
       countBadge.style.cssText = 'font-size: 11px; color: #aaa; margin-bottom: 5px; text-align: right;';
-      countBadge.innerText = `Mostrando ${videosToRender.length} vídeos oficiales`;
+      countBadge.innerText = `Mostrando ${videosToRender.length} vídeos`;
       searchResultsContainer.appendChild(countBadge);
 
       videosToRender.forEach((v) => {
