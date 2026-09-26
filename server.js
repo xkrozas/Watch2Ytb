@@ -22,7 +22,7 @@ function getCurrentVideoTime(room) {
   return room.currentTime + elapsed;
 }
 
-// Reloj maestro de sincronización (cada 4 segundos)
+// Reloj maestro de sincronización (cada 4 segs)
 setInterval(() => {
   for (const roomId in rooms) {
     const room = rooms[roomId];
@@ -40,13 +40,17 @@ io.on('connection', (socket) => {
   let currentRoom = null;
   let currentUserName = '';
 
-  // Unirse a sala o crearla
-  socket.on('join-room', ({ roomId, username }) => {
+  // Unirse a sala con comprobación de Anfitrión
+  socket.on('join-room', ({ roomId, username, hostToken }) => {
     currentRoom = roomId;
     currentUserName = username || `User-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
     socket.join(roomId);
 
+    let isHost = false;
+
+    // Si la sala es nueva, el creador es el Anfitrión
     if (!rooms[roomId]) {
+      const generatedHostToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
       rooms[roomId] = {
         videoId: 'dQw4w9WgXcQ',
         videoTitle: 'WatchParty - Bienvenido',
@@ -55,22 +59,62 @@ io.on('connection', (socket) => {
         playlist: [],
         history: [],
         users: {},
+        hostToken: generatedHostToken,
+        hostSocketId: socket.id,
+        permissions: {
+          controlPlayer: 'all', // 'all' | 'host'
+          manageVideos: 'all',  // 'all' | 'host'
+          chat: 'all'           // 'all' | 'host'
+        },
         lastUpdated: Date.now(),
         lastTrackChange: 0
       };
+      isHost = true;
+      socket.emit('set-host-token', generatedHostToken);
+    } else {
+      const room = rooms[roomId];
+      // Reconocer al anfitrión aunque refresque la página mediante su token
+      if (hostToken && room.hostToken === hostToken) {
+        room.hostSocketId = socket.id;
+        isHost = true;
+      } else if (!room.hostSocketId || !io.sockets.sockets.has(room.hostSocketId)) {
+        // Si el anfitrión anterior se fue, se asigna al nuevo participante
+        room.hostSocketId = socket.id;
+        isHost = true;
+        socket.emit('set-host-token', room.hostToken);
+      }
     }
 
-    rooms[roomId].users[socket.id] = { name: currentUserName };
+    rooms[roomId].users[socket.id] = { 
+      name: currentUserName,
+      isHost: isHost 
+    };
 
-    // Enviar estado de la sala al usuario que entra
+    // Enviar estado completo con permisos actuales
     socket.emit('sync-init', {
       ...rooms[roomId],
       currentTime: getCurrentVideoTime(rooms[roomId]),
-      assignedName: currentUserName
+      assignedName: currentUserName,
+      isHost: isHost,
+      permissions: rooms[roomId].permissions
     });
 
-    // Actualizar participantes
     io.to(roomId).emit('room-users-updated', Object.values(rooms[roomId].users));
+  });
+
+  // Cambiar permisos de la sala (Solo el anfitrión puede hacerlo)
+  socket.on('update-permissions', (newPermissions) => {
+    if (!currentRoom || !rooms[currentRoom]) return;
+    const room = rooms[currentRoom];
+
+    if (room.users[socket.id]?.isHost) {
+      room.permissions = {
+        controlPlayer: newPermissions.controlPlayer === 'host' ? 'host' : 'all',
+        manageVideos: newPermissions.manageVideos === 'host' ? 'host' : 'all',
+        chat: newPermissions.chat === 'host' ? 'host' : 'all'
+      };
+      io.to(currentRoom).emit('permissions-updated', room.permissions);
+    }
   });
 
   // Cambiar nombre de usuario
@@ -81,24 +125,30 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Chat en vivo
+  // Chat con control de permisos
   socket.on('send-chat', (text) => {
     if (!currentRoom || !rooms[currentRoom] || !text.trim()) return;
+    const room = rooms[currentRoom];
+
+    if (room.permissions.chat === 'host' && !room.users[socket.id]?.isHost) {
+      return socket.emit('action-blocked', 'El chat está reservado solo para el anfitrión.');
+    }
+
     const msg = {
-      user: rooms[currentRoom].users[socket.id]?.name || 'Anónimo',
+      user: room.users[socket.id]?.name || 'Anónimo',
+      isHost: room.users[socket.id]?.isHost || false,
       text: text.trim(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     io.to(currentRoom).emit('new-chat-message', msg);
   });
 
-  // Buscador de vídeos rápido y a prueba de fallos
+  // Buscador de vídeos
   socket.on('search-query', async (query) => {
     if (!query || !query.trim()) return;
     const cleanQ = query.trim();
 
     try {
-      // 1. Detectar si es un enlace directo a un vídeo
       const videoIdMatch = cleanQ.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
       if (videoIdMatch) {
         const vId = videoIdMatch[1];
@@ -112,7 +162,6 @@ io.on('connection', (socket) => {
         }]);
       }
 
-      // 2. Búsqueda por texto normal
       const res = await ytSearch(cleanQ);
       const results = (res.videos || []).slice(0, 20).map((v) => ({
         videoId: v.videoId,
@@ -124,17 +173,19 @@ io.on('connection', (socket) => {
 
       socket.emit('search-results', results);
     } catch (err) {
-      console.error('Error en búsqueda:', err);
       socket.emit('search-results', []);
     }
   });
 
-  // Control de vídeo
+  // Control de vídeo con permisos
   socket.on('change-video', (video) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     const room = rooms[currentRoom];
 
-    // Guardar el anterior en el historial
+    if (room.permissions.manageVideos === 'host' && !room.users[socket.id]?.isHost) {
+      return socket.emit('action-blocked', 'Solo el anfitrión tiene permiso para cambiar vídeos.');
+    }
+
     if (room.videoId) {
       room.history.unshift({ videoId: room.videoId, title: room.videoTitle });
       if (room.history.length > 25) room.history.pop();
@@ -152,14 +203,26 @@ io.on('connection', (socket) => {
 
   socket.on('add-to-playlist', (video) => {
     if (!currentRoom || !rooms[currentRoom]) return;
-    rooms[currentRoom].playlist.push(video);
-    io.to(currentRoom).emit('playlist-updated', rooms[currentRoom].playlist);
+    const room = rooms[currentRoom];
+
+    if (room.permissions.manageVideos === 'host' && !room.users[socket.id]?.isHost) {
+      return socket.emit('action-blocked', 'Solo el anfitrión puede añadir vídeos a la lista.');
+    }
+
+    room.playlist.push(video);
+    io.to(currentRoom).emit('playlist-updated', room.playlist);
   });
 
   socket.on('remove-from-playlist', (index) => {
     if (!currentRoom || !rooms[currentRoom]) return;
-    rooms[currentRoom].playlist.splice(index, 1);
-    io.to(currentRoom).emit('playlist-updated', rooms[currentRoom].playlist);
+    const room = rooms[currentRoom];
+
+    if (room.permissions.manageVideos === 'host' && !room.users[socket.id]?.isHost) {
+      return socket.emit('action-blocked', 'Solo el anfitrión puede quitar vídeos de la lista.');
+    }
+
+    room.playlist.splice(index, 1);
+    io.to(currentRoom).emit('playlist-updated', room.playlist);
   });
 
   socket.on('video-ended', () => {
@@ -186,30 +249,61 @@ io.on('connection', (socket) => {
 
   socket.on('play', (time) => {
     if (!currentRoom || !rooms[currentRoom]) return;
-    rooms[currentRoom].isPlaying = true;
-    rooms[currentRoom].currentTime = time;
-    rooms[currentRoom].lastUpdated = Date.now();
+    const room = rooms[currentRoom];
+
+    if (room.permissions.controlPlayer === 'host' && !room.users[socket.id]?.isHost) {
+      return socket.emit('action-blocked', 'Solo el anfitrión puede reproducir el vídeo.');
+    }
+
+    room.isPlaying = true;
+    room.currentTime = time;
+    room.lastUpdated = Date.now();
     socket.to(currentRoom).emit('play', time);
   });
 
   socket.on('pause', (time) => {
     if (!currentRoom || !rooms[currentRoom]) return;
-    rooms[currentRoom].isPlaying = false;
-    rooms[currentRoom].currentTime = time;
-    rooms[currentRoom].lastUpdated = Date.now();
+    const room = rooms[currentRoom];
+
+    if (room.permissions.controlPlayer === 'host' && !room.users[socket.id]?.isHost) {
+      return socket.emit('action-blocked', 'Solo el anfitrión puede pausar el vídeo.');
+    }
+
+    room.isPlaying = false;
+    room.currentTime = time;
+    room.lastUpdated = Date.now();
     socket.to(currentRoom).emit('pause', time);
   });
 
   socket.on('seek', (time) => {
     if (!currentRoom || !rooms[currentRoom]) return;
-    rooms[currentRoom].currentTime = time;
-    rooms[currentRoom].lastUpdated = Date.now();
+    const room = rooms[currentRoom];
+
+    if (room.permissions.controlPlayer === 'host' && !room.users[socket.id]?.isHost) {
+      return socket.emit('action-blocked', 'Solo el anfitrión puede adelantar el vídeo.');
+    }
+
+    room.currentTime = time;
+    room.lastUpdated = Date.now();
     socket.to(currentRoom).emit('seek', time);
   });
 
   socket.on('disconnect', () => {
     if (currentRoom && rooms[currentRoom] && rooms[currentRoom].users) {
+      const wasHost = rooms[currentRoom].users[socket.id]?.isHost;
       delete rooms[currentRoom].users[socket.id];
+
+      // Si el anfitrión sale, transferir el rol al primer usuario disponible
+      if (wasHost) {
+        const remainingSockets = Object.keys(rooms[currentRoom].users);
+        if (remainingSockets.length > 0) {
+          const newHostSocket = remainingSockets[0];
+          rooms[currentRoom].hostSocketId = newHostSocket;
+          rooms[currentRoom].users[newHostSocket].isHost = true;
+          io.to(newHostSocket).emit('assigned-as-host', rooms[currentRoom].hostToken);
+        }
+      }
+
       io.to(currentRoom).emit('room-users-updated', Object.values(rooms[currentRoom].users));
     }
   });
@@ -217,5 +311,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Servidor W2G Clone listo en puerto ${PORT}`);
+  console.log(`Servidor W2G Red Edition listo en puerto ${PORT}`);
 });
