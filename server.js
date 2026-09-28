@@ -11,6 +11,9 @@ const io = new Server(server, {
   pingTimeout: 5000
 });
 
+// 🔑 CONTRASEÑA DE ADMINISTRADOR (Cámbiala si lo deseas)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Estado de cada sala
@@ -20,6 +23,30 @@ function getCurrentVideoTime(room) {
   if (!room.isPlaying) return room.currentTime;
   const elapsed = (Date.now() - (room.lastUpdated || Date.now())) / 1000;
   return room.currentTime + elapsed;
+}
+
+// Datos de salas formateados para el panel de administración
+function getAdminRoomsData() {
+  const list = [];
+  for (const roomId in rooms) {
+    const room = rooms[roomId];
+    const users = Object.values(room.users || {});
+    list.push({
+      id: roomId,
+      usersCount: users.length,
+      users: users,
+      videoId: room.videoId,
+      videoTitle: room.videoTitle || 'Vídeo de YouTube',
+      isPlaying: room.isPlaying,
+      queueCount: (room.playlist || []).length,
+      permissions: room.permissions || { controlPlayer: 'all', manageVideos: 'all', chat: 'all' }
+    });
+  }
+  return list;
+}
+
+function notifyAdmins() {
+  io.to('admin-channel').emit('admin-rooms-data', getAdminRoomsData());
 }
 
 // Reloj maestro de sincronización (cada 4 segs)
@@ -48,7 +75,6 @@ io.on('connection', (socket) => {
 
     let isHost = false;
 
-    // Si la sala es nueva, el creador es el Anfitrión
     if (!rooms[roomId]) {
       const generatedHostToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
       rooms[roomId] = {
@@ -62,9 +88,9 @@ io.on('connection', (socket) => {
         hostToken: generatedHostToken,
         hostSocketId: socket.id,
         permissions: {
-          controlPlayer: 'all', // 'all' | 'host'
-          manageVideos: 'all',  // 'all' | 'host'
-          chat: 'all'           // 'all' | 'host'
+          controlPlayer: 'all',
+          manageVideos: 'all',
+          chat: 'all'
         },
         lastUpdated: Date.now(),
         lastTrackChange: 0
@@ -73,12 +99,10 @@ io.on('connection', (socket) => {
       socket.emit('set-host-token', generatedHostToken);
     } else {
       const room = rooms[roomId];
-      // Reconocer al anfitrión aunque refresque la página mediante su token
       if (hostToken && room.hostToken === hostToken) {
         room.hostSocketId = socket.id;
         isHost = true;
       } else if (!room.hostSocketId || !io.sockets.sockets.has(room.hostSocketId)) {
-        // Si el anfitrión anterior se fue, se asigna al nuevo participante
         room.hostSocketId = socket.id;
         isHost = true;
         socket.emit('set-host-token', room.hostToken);
@@ -90,7 +114,6 @@ io.on('connection', (socket) => {
       isHost: isHost 
     };
 
-    // Enviar estado completo con permisos actuales
     socket.emit('sync-init', {
       ...rooms[roomId],
       currentTime: getCurrentVideoTime(rooms[roomId]),
@@ -100,9 +123,10 @@ io.on('connection', (socket) => {
     });
 
     io.to(roomId).emit('room-users-updated', Object.values(rooms[roomId].users));
+    notifyAdmins();
   });
 
-  // Cambiar permisos de la sala (Solo el anfitrión puede hacerlo)
+  // Cambiar permisos de la sala
   socket.on('update-permissions', (newPermissions) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     const room = rooms[currentRoom];
@@ -114,6 +138,7 @@ io.on('connection', (socket) => {
         chat: newPermissions.chat === 'host' ? 'host' : 'all'
       };
       io.to(currentRoom).emit('permissions-updated', room.permissions);
+      notifyAdmins();
     }
   });
 
@@ -122,10 +147,11 @@ io.on('connection', (socket) => {
     if (currentRoom && rooms[currentRoom] && rooms[currentRoom].users[socket.id]) {
       rooms[currentRoom].users[socket.id].name = newName.trim() || 'Invitado';
       io.to(currentRoom).emit('room-users-updated', Object.values(rooms[currentRoom].users));
+      notifyAdmins();
     }
   });
 
-  // Chat con control de permisos
+  // Chat con permisos
   socket.on('send-chat', (text) => {
     if (!currentRoom || !rooms[currentRoom] || !text.trim()) return;
     const room = rooms[currentRoom];
@@ -199,6 +225,7 @@ io.on('connection', (socket) => {
     room.lastUpdated = Date.now();
 
     io.to(currentRoom).emit('video-changed', { videoId: room.videoId, title: room.videoTitle });
+    notifyAdmins();
   });
 
   socket.on('add-to-playlist', (video) => {
@@ -211,6 +238,7 @@ io.on('connection', (socket) => {
 
     room.playlist.push(video);
     io.to(currentRoom).emit('playlist-updated', room.playlist);
+    notifyAdmins();
   });
 
   socket.on('remove-from-playlist', (index) => {
@@ -223,6 +251,7 @@ io.on('connection', (socket) => {
 
     room.playlist.splice(index, 1);
     io.to(currentRoom).emit('playlist-updated', room.playlist);
+    notifyAdmins();
   });
 
   socket.on('video-ended', () => {
@@ -244,6 +273,7 @@ io.on('connection', (socket) => {
       io.to(currentRoom).emit('video-changed', { videoId: room.videoId, title: room.videoTitle });
       io.to(currentRoom).emit('playlist-updated', room.playlist);
       io.to(currentRoom).emit('history-updated', room.history);
+      notifyAdmins();
     }
   });
 
@@ -259,6 +289,7 @@ io.on('connection', (socket) => {
     room.currentTime = time;
     room.lastUpdated = Date.now();
     socket.to(currentRoom).emit('play', time);
+    notifyAdmins();
   });
 
   socket.on('pause', (time) => {
@@ -273,6 +304,7 @@ io.on('connection', (socket) => {
     room.currentTime = time;
     room.lastUpdated = Date.now();
     socket.to(currentRoom).emit('pause', time);
+    notifyAdmins();
   });
 
   socket.on('seek', (time) => {
@@ -288,12 +320,33 @@ io.on('connection', (socket) => {
     socket.to(currentRoom).emit('seek', time);
   });
 
+  // --- CANALES DE ADMINISTRACIÓN ---
+  socket.on('admin-auth', (password) => {
+    if (password === ADMIN_PASSWORD) {
+      socket.join('admin-channel');
+      socket.emit('admin-auth-success');
+      socket.emit('admin-rooms-data', getAdminRoomsData());
+    } else {
+      socket.emit('admin-auth-fail');
+    }
+  });
+
+  socket.on('admin-delete-room', ({ password, roomId }) => {
+    if (password !== ADMIN_PASSWORD) return;
+    if (rooms[roomId]) {
+      // Expulsar a todos los usuarios de esa sala
+      io.to(roomId).emit('room-deleted');
+      io.socketsLeave(roomId);
+      delete rooms[roomId];
+      notifyAdmins();
+    }
+  });
+
   socket.on('disconnect', () => {
     if (currentRoom && rooms[currentRoom] && rooms[currentRoom].users) {
       const wasHost = rooms[currentRoom].users[socket.id]?.isHost;
       delete rooms[currentRoom].users[socket.id];
 
-      // Si el anfitrión sale, transferir el rol al primer usuario disponible
       if (wasHost) {
         const remainingSockets = Object.keys(rooms[currentRoom].users);
         if (remainingSockets.length > 0) {
@@ -305,6 +358,7 @@ io.on('connection', (socket) => {
       }
 
       io.to(currentRoom).emit('room-users-updated', Object.values(rooms[currentRoom].users));
+      notifyAdmins();
     }
   });
 });
