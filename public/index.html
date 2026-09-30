@@ -66,7 +66,7 @@
     .guest-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
     .guest-card input {
       width: 100%; padding: 12px; background: #0b0e13; border: 1px solid var(--border-color);
-      border-radius: 4px; color: #fff; font-size: 14px; margin-bottom: 15px; outline: none; text-align: center;
+      border-radius: 4px; color: #fff; font-size: 15px; margin-bottom: 15px; outline: none; text-align: center;
     }
     .guest-card button {
       width: 100%; padding: 12px; background: var(--accent-red); border: none; border-radius: 4px;
@@ -78,37 +78,39 @@
 
     /* Barra Superior */
     .room-header {
-      height: 50px; background: var(--bg-header); border-bottom: 1px solid var(--border-color);
+      height: 52px; background: var(--bg-header); border-bottom: 1px solid var(--border-color);
       display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 8px; z-index: 10; flex-shrink: 0;
     }
-    .room-info { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+    .room-info { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 
-    .top-search-wrap { flex: 1; max-width: 600px; position: relative; }
+    /* Barra de Búsqueda Superior */
+    .top-search-wrap { flex: 1; min-width: 0; max-width: 600px; position: relative; }
     .top-search-bar {
-      display: flex; align-items: center; background: #0b0e13; border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 8px;
+      display: flex; align-items: center; background: #0b0e13; border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px;
     }
     .top-search-bar input {
-      flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 13px; padding: 5px 6px; width: 100%;
+      flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #fff; font-size: 13px; padding: 6px 4px;
     }
-    .search-btn-icon { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; }
+    .search-btn-icon { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; flex-shrink: 0; }
 
-    .header-right { display: flex; align-items: center; gap: 8px; }
-    .user-counter { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
-    .btn-invite {
-      background: var(--accent-red); color: #fff; border: none; border-radius: 4px; padding: 6px 12px;
-      font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    .header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .user-counter { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 3px; }
+    .btn-header-action {
+      background: #202733; color: #fff; border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 10px;
+      font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;
     }
-    .btn-invite:hover { background: var(--accent-red-hover); }
+    .btn-header-action.btn-invite-accent { background: var(--accent-red); border-color: var(--accent-red); font-weight: 700; }
+    .btn-header-action.btn-invite-accent:hover { background: var(--accent-red-hover); }
 
     .mobile-user-tag {
       display: none; background: #221417; color: var(--accent-red); font-size: 10px; font-weight: bold;
-      padding: 4px 8px; border-radius: 4px; border: 1px solid var(--accent-red); cursor: pointer;
+      padding: 4px 7px; border-radius: 4px; border: 1px solid var(--accent-red); cursor: pointer;
     }
 
     /* Estructura Principal */
     .room-main { flex: 1; display: flex; overflow: hidden; position: relative; min-height: 0; }
 
-    /* Dock Izquierdo */
+    /* Dock Izquierdo (PC) */
     .left-dock {
       width: 58px; background: var(--bg-header); border-right: 1px solid var(--border-color);
       display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 15px 0; flex-shrink: 0;
@@ -133,7 +135,6 @@
     .video-container { width: 100%; height: 100%; position: relative; }
     #player { width: 100%; height: 100%; position: absolute; inset: 0; }
 
-    /* Botón flotante para activar sonido */
     .unmute-banner {
       position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
       background: var(--accent-red); color: #fff; font-weight: bold; font-size: 12px;
@@ -141,23 +142,35 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.8); display: none; align-items: center; gap: 6px; white-space: nowrap;
     }
 
-    /* Mensaje flotante de acción bloqueada por permisos */
     .toast-alert {
       position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
       background: rgba(229, 9, 20, 0.95); color: #fff; font-size: 12px; font-weight: 600;
       padding: 8px 16px; border-radius: 20px; z-index: 60; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
 
-    /* Cajón Desplegable del Buscador */
+    /* Cajón Desplegable del Buscador (Optimizada para ver y escribir en móvil) */
     .search-drawer {
       position: absolute; inset: 0; background: rgba(15, 18, 22, 0.98);
       z-index: 50; display: none; flex-direction: column; padding: 15px; overflow: hidden;
     }
-    .drawer-nav { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
-    .drawer-tabs { display: flex; gap: 15px; font-size: 13px; font-weight: 600; }
-    .drawer-tab.active { color: var(--accent-red); border-bottom: 2px solid var(--accent-red); padding-bottom: 6px; }
+    .drawer-nav { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px; }
+    .drawer-title { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
 
-    .platform-chips { display: flex; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border-color); overflow-x: auto; }
+    /* Barra de Búsqueda Grande interna dentro del Cajón */
+    .drawer-search-row {
+      display: flex; gap: 8px; margin-bottom: 12px;
+    }
+    .drawer-search-row input {
+      flex: 1; padding: 11px 14px; background: #080a0d; border: 1.5px solid var(--border-color);
+      border-radius: 6px; color: #fff; font-size: 15px; outline: none;
+    }
+    .drawer-search-row input:focus { border-color: var(--accent-red); }
+    .drawer-search-row button {
+      background: var(--accent-red); color: #fff; border: none; padding: 0 18px; border-radius: 6px;
+      font-size: 13px; font-weight: bold; cursor: pointer; white-space: nowrap;
+    }
+
+    .platform-chips { display: flex; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); overflow-x: auto; flex-shrink: 0; }
     .chip { background: #1c222b; font-size: 11px; padding: 4px 10px; border-radius: 12px; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
     .chip.active { background: var(--accent-red); color: #fff; }
 
@@ -203,9 +216,8 @@
       flex: 1; background: #0b0e13; border: 1px solid var(--border-color); padding: 7px 10px; border-radius: 4px; color: #fff; font-size: 12px; outline: none;
     }
     .chat-send-btn { background: var(--accent-red); color: #fff; border: none; border-radius: 4px; padding: 0 12px; cursor: pointer; font-weight: bold; }
-    .chat-send-btn:hover { background: var(--accent-red-hover); }
 
-    /* Lista de Reproducción */
+    /* Cola */
     .queue-items { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
     .queue-card {
       display: flex; gap: 8px; background: #11151c; padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); align-items: center;
@@ -214,7 +226,7 @@
     .queue-card-title { flex: 1; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .btn-remove-queue { background: transparent; border: none; color: #ff5252; cursor: pointer; padding: 4px; }
 
-    /* --- MODALES GENERALES (Invitación y Permisos) --- */
+    /* Modales */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); display: none;
       align-items: center; justify-content: center; z-index: 100; padding: 15px;
@@ -229,9 +241,7 @@
 
     .btn-modal-close { background: #333d4b; color: #fff; border: none; padding: 7px 16px; font-size: 12px; border-radius: 4px; cursor: pointer; }
     .btn-modal-save { background: var(--accent-red); color: #fff; border: none; padding: 7px 18px; font-size: 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }
-    .btn-modal-save:hover { background: var(--accent-red-hover); }
 
-    /* Formulario de Permisos */
     .perm-group { margin-bottom: 15px; background: #13171f; padding: 12px; border-radius: 6px; border: 1px solid #252e3b; }
     .perm-group label { display: block; font-weight: 600; margin-bottom: 6px; }
     .perm-group select {
@@ -241,16 +251,40 @@
       background: #25171a; border: 1px solid var(--accent-red); padding: 10px; border-radius: 6px; margin-bottom: 15px; color: #ffb8be; font-size: 12px;
     }
 
-    /* Responsive Móvil */
+    /* ==========================================================================
+       OPTIMIZACIÓN MÓVIL ESPECÍFICA (PANTALLAS <= 768px)
+       ========================================================================== */
     @media (max-width: 768px) {
-      .room-header { padding: 0 8px; }
-      .room-info span { display: none; }
+      /* Prevención estricta del auto-zoom en iOS Safari */
+      .top-search-bar input,
+      .drawer-search-row input,
+      .chat-input-bar input {
+        font-size: 16px !important;
+      }
+
+      .room-header { padding: 0 8px; gap: 6px; }
+      .room-info span { display: none; } /* Ocultar "Temporary Room" en móvil */
+
       .left-dock { display: none; }
       .mobile-user-tag { display: block; }
+
+      /* Compactar textos de botones de la cabecera en móvil */
+      .hide-mobile-text { display: none; }
+
+      .btn-header-action { padding: 5px 8px; }
+
+      /* Estructura vertical con vídeo 16:9 arriba */
       .room-main { flex-direction: column; }
       .center-stage { width: 100%; height: auto; aspect-ratio: 16 / 9; flex: none; }
       .right-sidebar { width: 100%; flex: 1; border-left: none; border-top: 1px solid var(--border-color); min-height: 0; }
-      .search-drawer { position: fixed; inset: 0; z-index: 1000; padding: 12px; }
+
+      /* Cajón de búsqueda a pantalla completa */
+      .search-drawer {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        padding: 12px;
+      }
     }
   </style>
 </head>
@@ -289,29 +323,34 @@
   <!-- VISTA 2: SALA -->
   <div id="room-view">
     <header class="room-header">
-      <div class="room-info" onclick="openInviteModal()">
+      <div class="room-info" onclick="openInviteModal()" title="Copiar enlace">
         <span>Temporary Room</span> 📋
       </div>
 
+      <!-- Barra de Búsqueda Superior -->
       <div class="top-search-wrap">
         <div class="top-search-bar">
-          <button class="search-btn-icon" style="color: var(--accent-red)">▶</button>
-          <input type="text" id="top-search-input" placeholder="Busca o pega enlace...">
+          <input type="text" id="top-search-input" placeholder="Buscar o pegar enlace..." onfocus="openSearchDrawer(true)">
           <button class="search-btn-icon" id="btn-clear-search" onclick="closeSearchDrawer()">✕</button>
-          <button class="search-btn-icon" onclick="triggerSearch()">🔍</button>
+          <button class="search-btn-icon" onclick="openSearchDrawer(true)">🔍</button>
         </div>
       </div>
 
+      <!-- Acciones de Cabecera (Compactadas para móvil) -->
       <div class="header-right">
         <div class="mobile-user-tag" id="mobile-user-tag" onclick="promptChangeName()">User-...</div>
         <div class="user-counter">👤 <span id="room-user-count">1</span></div>
-        <button class="btn-invite" onclick="openPermissionsModal()" style="background: #2a3545; color: #fff;">🔒 Permisos</button>
-        <button class="btn-invite" onclick="openInviteModal()">+ Invitar</button>
+        <button class="btn-header-action" onclick="openPermissionsModal()" title="Permisos">
+          <span>🔒</span><span class="hide-mobile-text"> Permisos</span>
+        </button>
+        <button class="btn-header-action btn-invite-accent" onclick="openInviteModal()" title="Invitar">
+          <span>+</span><span class="hide-mobile-text"> Invitar</span>
+        </button>
       </div>
     </header>
 
     <div class="room-main">
-      <!-- Dock Izquierdo -->
+      <!-- Dock Izquierdo (PC) -->
       <aside class="left-dock">
         <div class="dock-top">
           <div class="dock-item" onclick="openInviteModal()">
@@ -352,10 +391,14 @@
         <!-- Cajón Desplegable del Buscador -->
         <div class="search-drawer" id="search-drawer">
           <div class="drawer-nav">
-            <div class="drawer-tabs">
-              <span class="drawer-tab active">🔍 Contenido</span>
-            </div>
-            <button class="search-btn-icon" onclick="closeSearchDrawer()" style="font-size: 15px; font-weight: bold;">✕ Cerrar</button>
+            <span class="drawer-title">🔍 Buscar o pegar vídeo</span>
+            <button class="search-btn-icon" onclick="closeSearchDrawer()" style="font-size: 15px; font-weight: bold; color: #fff;">✕ Cerrar</button>
+          </div>
+
+          <!-- Barra Grande y Cómoda para Escribir y Pegar -->
+          <div class="drawer-search-row">
+            <input type="text" id="drawer-search-input" placeholder="Pega el enlace de YouTube o escribe para buscar...">
+            <button onclick="triggerDrawerSearch()">Buscar</button>
           </div>
 
           <div class="platform-chips">
@@ -364,7 +407,7 @@
 
           <div class="search-results-list" id="search-results-list">
             <div style="text-align: center; color: var(--text-muted); margin-top: 40px; font-size: 13px;">
-              Escribe algo en el buscador de arriba para explorar vídeos...
+              Escribe algo o pega un enlace de YouTube arriba...
             </div>
           </div>
         </div>
@@ -478,7 +521,6 @@
     let pendingVideo = null;
     let hasUserInteracted = false;
 
-    // Estado de permisos y roles
     let isHost = false;
     let roomPermissions = { controlPlayer: 'all', manageVideos: 'all', chat: 'all' };
 
@@ -518,7 +560,6 @@
       }
     });
 
-    // Guardar token de anfitrión para no perderlo al recargar
     socket.on('set-host-token', (token) => {
       hostToken = token;
       localStorage.setItem(`w2g_host_token_${roomId}`, token);
@@ -607,7 +648,6 @@
     function onPlayerStateChange(event) {
       if (isRemoteAction || !isPlayerReady || !player || typeof player.getCurrentTime !== 'function') return;
 
-      // Si los controles están bloqueados para no-anfitriones
       if (roomPermissions.controlPlayer === 'host' && !isHost) {
         if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.PAUSED) {
           showToastAlert('🔒 Solo el anfitrión puede controlar la reproducción.');
@@ -627,7 +667,6 @@
       }
     }
 
-    // --- SINCRONIZACIÓN Y PERMISOS ---
     socket.on('sync-init', (data) => {
       myUsername = data.assignedName;
       isHost = data.isHost;
@@ -731,31 +770,63 @@
       document.getElementById('room-user-count').innerText = users.length;
     });
 
-    // Buscador
-    const topSearchInput = document.getElementById('top-search-input');
-    const searchDrawer = document.getElementById('search-drawer');
-
-    topSearchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') triggerSearch();
+    socket.on('room-deleted', () => {
+      alert('Esta sala ha sido eliminada o cerrada por el administrador.');
+      window.location.href = '/';
     });
 
-    function triggerSearch() {
-      const q = topSearchInput.value.trim();
-      if (!q) return;
+    // --- GESTIÓN AVANZADA DE BÚSQUEDA (CON SINCRONIZACIÓN MÓVIL) ---
+    const topSearchInput = document.getElementById('top-search-input');
+    const drawerSearchInput = document.getElementById('drawer-search-input');
+    const searchDrawer = document.getElementById('search-drawer');
 
+    function openSearchDrawer(focusOnDrawer = false) {
       if (roomPermissions.manageVideos === 'host' && !isHost) {
         showToastAlert('🔒 Solo el anfitrión puede buscar y cambiar vídeos.');
+        topSearchInput.blur();
         return;
       }
 
       searchDrawer.style.display = 'flex';
-      document.getElementById('search-results-list').innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 40px;">Buscando vídeos...</div>';
-      socket.emit('search-query', q);
+      drawerSearchInput.value = topSearchInput.value;
+
+      if (focusOnDrawer) {
+        setTimeout(() => drawerSearchInput.focus(), 100);
+      }
     }
 
     function closeSearchDrawer() {
       searchDrawer.style.display = 'none';
       topSearchInput.value = '';
+      drawerSearchInput.value = '';
+    }
+
+    topSearchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        openSearchDrawer(false);
+        performSearch(topSearchInput.value);
+      }
+    });
+
+    drawerSearchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') triggerDrawerSearch();
+    });
+
+    function triggerDrawerSearch() {
+      const q = drawerSearchInput.value.trim();
+      topSearchInput.value = q;
+      performSearch(q);
+    }
+
+    function performSearch(q) {
+      if (!q || !q.trim()) return;
+      if (roomPermissions.manageVideos === 'host' && !isHost) {
+        showToastAlert('🔒 Solo el anfitrión puede buscar y cambiar vídeos.');
+        return;
+      }
+      searchDrawer.style.display = 'flex';
+      document.getElementById('search-results-list').innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 40px;">Buscando vídeos...</div>';
+      socket.emit('search-query', q.trim());
     }
 
     socket.on('search-results', (results) => {
@@ -876,7 +947,7 @@
       }
     }
 
-    // Modales de Invitación y Permisos
+    // Modales
     function openInviteModal() {
       document.getElementById('invite-url-input').value = window.location.href;
       document.getElementById('invite-modal').style.display = 'flex';
@@ -946,11 +1017,6 @@
         socket.emit('change-username', myUsername);
       }
     }
-
-    socket.on('room-deleted', () => {
-      alert('Esta sala ha sido eliminada o cerrada por el administrador.');
-      window.location.href = '/';
-    });
   </script>
 </body>
 </html>
