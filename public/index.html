@@ -946,6 +946,11 @@
         socket.emit('change-username', myUsername);
       }
     }
+
+    socket.on('room-deleted', () => {
+      alert('Esta sala ha sido eliminada o cerrada por el administrador.');
+      window.location.href = '/';
+    });
   </script>
 </body>
 </html>
