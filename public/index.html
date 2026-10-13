@@ -146,9 +146,10 @@
       position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
       background: rgba(229, 9, 20, 0.95); color: #fff; font-size: 12px; font-weight: 600;
       padding: 8px 16px; border-radius: 20px; z-index: 60; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      pointer-events: none; white-space: nowrap;
     }
 
-    /* Cajón Desplegable del Buscador (Optimizada para ver y escribir en móvil) */
+    /* Cajón Desplegable del Buscador */
     .search-drawer {
       position: absolute; inset: 0; background: rgba(15, 18, 22, 0.98);
       z-index: 50; display: none; flex-direction: column; padding: 15px; overflow: hidden;
@@ -156,7 +157,6 @@
     .drawer-nav { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px; }
     .drawer-title { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
 
-    /* Barra de Búsqueda Grande interna dentro del Cajón */
     .drawer-search-row {
       display: flex; gap: 8px; margin-bottom: 12px;
     }
@@ -255,7 +255,6 @@
        OPTIMIZACIÓN MÓVIL ESPECÍFICA (PANTALLAS <= 768px)
        ========================================================================== */
     @media (max-width: 768px) {
-      /* Prevención estricta del auto-zoom en iOS Safari */
       .top-search-bar input,
       .drawer-search-row input,
       .chat-input-bar input {
@@ -263,22 +262,19 @@
       }
 
       .room-header { padding: 0 8px; gap: 6px; }
-      .room-info span { display: none; } /* Ocultar "Temporary Room" en móvil */
+      .room-info span { display: none; }
 
       .left-dock { display: none; }
       .mobile-user-tag { display: block; }
 
-      /* Compactar textos de botones de la cabecera en móvil */
       .hide-mobile-text { display: none; }
 
       .btn-header-action { padding: 5px 8px; }
 
-      /* Estructura vertical con vídeo 16:9 arriba */
       .room-main { flex-direction: column; }
       .center-stage { width: 100%; height: auto; aspect-ratio: 16 / 9; flex: none; }
       .right-sidebar { width: 100%; flex: 1; border-left: none; border-top: 1px solid var(--border-color); min-height: 0; }
 
-      /* Cajón de búsqueda a pantalla completa */
       .search-drawer {
         position: fixed;
         inset: 0;
@@ -336,7 +332,7 @@
         </div>
       </div>
 
-      <!-- Acciones de Cabecera (Compactadas para móvil) -->
+      <!-- Acciones de Cabecera -->
       <div class="header-right">
         <div class="mobile-user-tag" id="mobile-user-tag" onclick="promptChangeName()">User-...</div>
         <div class="user-counter">👤 <span id="room-user-count">1</span></div>
@@ -361,7 +357,7 @@
             <span class="dock-icon">🔒</span>
             <span>Permisos</span>
           </div>
-          <div class="dock-item" onclick="alert('Usa el buscador superior para reproducir cualquier vídeo.')">
+          <div class="dock-item" onclick="showToastAlert('💡 Usa el buscador superior para reproducir cualquier vídeo.')">
             <span class="dock-icon">❓</span>
             <span>Ayuda</span>
           </div>
@@ -395,7 +391,6 @@
             <button class="search-btn-icon" onclick="closeSearchDrawer()" style="font-size: 15px; font-weight: bold; color: #fff;">✕ Cerrar</button>
           </div>
 
-          <!-- Barra Grande y Cómoda para Escribir y Pegar -->
           <div class="drawer-search-row">
             <input type="text" id="drawer-search-input" placeholder="Pega el enlace de YouTube o escribe para buscar...">
             <button onclick="triggerDrawerSearch()">Buscar</button>
@@ -508,6 +503,17 @@
   </div>
 
   <script>
+    // Función de sanitización para evitar XSS
+    function escapeHTML(str) {
+      return String(str || '').replace(/[&<>'"]/g, (tag) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[tag]));
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     let roomId = urlParams.get('r');
     let myUsername = localStorage.getItem('w2g_username') || '';
@@ -518,6 +524,7 @@
     let isPlayerReady = false;
     let isRemoteAction = false;
     let remoteTimeout = null;
+    let toastTimeout = null;
     let pendingVideo = null;
     let hasUserInteracted = false;
 
@@ -532,6 +539,9 @@
       const nameInput = document.getElementById('guest-name-input');
       nameInput.value = myUsername || `User-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
       guestModal.style.display = 'flex';
+      nameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') confirmGuestEntry();
+      });
     } else {
       document.getElementById('home-view').style.display = 'flex';
       document.getElementById('room-view').style.display = 'none';
@@ -570,6 +580,7 @@
       localStorage.setItem(`w2g_host_token_${roomId}`, token);
       isHost = true;
       updateHostVisuals();
+      applyPermissionsToUI();
       showToastAlert('👑 ¡Eres el nuevo anfitrión de la sala!');
     });
 
@@ -719,7 +730,8 @@
       const t = document.getElementById('toast-alert');
       t.innerText = text;
       t.style.display = 'block';
-      setTimeout(() => { t.style.display = 'none'; }, 3000);
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => { t.style.display = 'none'; }, 3000);
     }
 
     socket.on('heartbeat-sync', (data) => {
@@ -775,7 +787,7 @@
       window.location.href = '/';
     });
 
-    // --- GESTIÓN AVANZADA DE BÚSQUEDA (CON SINCRONIZACIÓN MÓVIL) ---
+    // --- GESTIÓN AVANZADA DE BÚSQUEDA ---
     const topSearchInput = document.getElementById('top-search-input');
     const drawerSearchInput = document.getElementById('drawer-search-input');
     const searchDrawer = document.getElementById('search-drawer');
@@ -842,16 +854,18 @@
         const card = document.createElement('div');
         card.className = 'w2g-card';
         card.innerHTML = `
-          <img src="${v.thumbnail}" alt="">
+          <img src="${escapeHTML(v.thumbnail)}" alt="">
           <div class="w2g-card-info">
-            <div class="w2g-card-title">${v.title}</div>
-            <div class="w2g-card-author">${v.author} • ${v.duration}</div>
+            <div class="w2g-card-title" title="${escapeHTML(v.title)}">${escapeHTML(v.title)}</div>
+            <div class="w2g-card-author">${escapeHTML(v.author)} • ${escapeHTML(v.duration)}</div>
           </div>
           <div class="w2g-card-actions">
-            <button class="btn-action-w2g btn-play-now" onclick='playNow(${JSON.stringify(v)})'>▶ Ver</button>
-            <button class="btn-action-w2g" onclick='addToPlaylist(${JSON.stringify(v)})'>+ Lista</button>
+            <button class="btn-action-w2g btn-play-now">▶ Ver</button>
+            <button class="btn-action-w2g btn-add-list">+ Lista</button>
           </div>
         `;
+        card.querySelector('.btn-play-now').addEventListener('click', () => playNow(v));
+        card.querySelector('.btn-add-list').addEventListener('click', () => addToPlaylist(v));
         list.appendChild(card);
       });
     });
@@ -863,7 +877,7 @@
 
     function addToPlaylist(v) {
       socket.emit('add-to-playlist', v);
-      alert('Vídeo añadido a la lista');
+      showToastAlert('✅ Vídeo añadido a la lista');
     }
 
     // Listas y Cola
@@ -882,10 +896,13 @@
         const item = document.createElement('div');
         item.className = 'queue-card';
         item.innerHTML = `
-          <img src="${v.thumbnail}">
-          <div class="queue-card-title">${v.title}</div>
-          <button class="btn-remove-queue" onclick="socket.emit('remove-from-playlist', ${idx})">✕</button>
+          <img src="${escapeHTML(v.thumbnail)}" alt="">
+          <div class="queue-card-title" title="${escapeHTML(v.title)}">${escapeHTML(v.title)}</div>
+          <button class="btn-remove-queue" title="Quitar de la lista">✕</button>
         `;
+        item.querySelector('.btn-remove-queue').addEventListener('click', () => {
+          socket.emit('remove-from-playlist', idx);
+        });
         c.appendChild(item);
       });
     }
@@ -901,10 +918,13 @@
         const item = document.createElement('div');
         item.className = 'queue-card';
         item.innerHTML = `
-          <div class="queue-card-title" style="cursor: pointer;" onclick="socket.emit('change-video', { videoId: '${v.videoId}', title: '${v.title}' })">
-            ▶ ${v.title}
+          <div class="queue-card-title" style="cursor: pointer;" title="${escapeHTML(v.title)}">
+            ▶ ${escapeHTML(v.title)}
           </div>
         `;
+        item.querySelector('.queue-card-title').addEventListener('click', () => {
+          socket.emit('change-video', { videoId: v.videoId, title: v.title });
+        });
         c.appendChild(item);
       });
     }
@@ -926,7 +946,13 @@
       const container = document.getElementById('chat-messages');
       const div = document.createElement('div');
       div.className = 'chat-msg';
-      div.innerHTML = `<div class="chat-user">${msg.isHost ? '👑 ' : ''}${msg.user} <span style="font-size: 10px; color: var(--text-muted); font-weight: normal;">${msg.time}</span></div><div>${msg.text}</div>`;
+      div.innerHTML = `
+        <div class="chat-user">
+          ${msg.isHost ? '👑 ' : ''}${escapeHTML(msg.user)}
+          <span style="font-size: 10px; color: var(--text-muted); font-weight: normal;">${escapeHTML(msg.time)}</span>
+        </div>
+        <div>${escapeHTML(msg.text)}</div>
+      `;
       container.appendChild(div);
       container.scrollTop = container.scrollHeight;
     });
@@ -959,7 +985,8 @@
 
     function copyInviteUrl() {
       navigator.clipboard.writeText(window.location.href);
-      alert('¡Enlace de invitación copiado!');
+      closeInviteModal();
+      showToastAlert('📋 ¡Enlace de invitación copiado!');
     }
 
     function openPermissionsModal() {
@@ -1010,7 +1037,7 @@
     function promptChangeName() {
       const n = prompt('Introduce tu nuevo nombre:', myUsername);
       if (n && n.trim()) {
-        myUsername = n.trim();
+        myUsername = n.trim().substring(0, 25);
         localStorage.setItem('w2g_username', myUsername);
         document.getElementById('dock-username').innerText = myUsername;
         document.getElementById('mobile-user-tag').innerText = (isHost ? '👑 ' : '') + myUsername;
