@@ -734,14 +734,18 @@
       toastTimeout = setTimeout(() => { t.style.display = 'none'; }, 3000);
     }
 
-    socket.on('heartbeat-sync', (data) => {
+socket.on('heartbeat-sync', (data) => {
       if (!isPlayerReady || !player || typeof player.getCurrentTime !== 'function' || isRemoteAction) return;
+      
+      const st = player.getPlayerState();
+      // Si el vídeo ya ha terminado en el reproductor, ignorar el heartbeat
+      if (st === YT.PlayerState.ENDED) return;
+
       const drift = Math.abs(player.getCurrentTime() - data.currentTime);
       if (drift > 2.5) {
         setRemoteCooldown(1000);
         player.seekTo(data.currentTime, true);
       }
-      const st = player.getPlayerState();
       if (data.isPlaying && st !== YT.PlayerState.PLAYING && st !== YT.PlayerState.BUFFERING) {
         setRemoteCooldown(1000);
         player.playVideo();
