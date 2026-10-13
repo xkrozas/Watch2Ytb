@@ -344,20 +344,32 @@
         font-size: 16px !important;
       }
 
-      .room-header { padding: 0 8px; gap: 6px; }
-      
-      /* Ocultamos elementos duplicados en móvil para darle todo el ancho al buscador */
-      .room-info,
+      /* Cabecera en 2 filas: botones arriba y buscador al 100% abajo */
+      .room-header {
+        height: auto;
+        flex-wrap: wrap;
+        padding: 8px;
+        gap: 8px;
+      }
+      .room-info span,
       .left-dock,
-      .mobile-user-tag,
       #btn-clear-search,
       .hide-mobile-text {
         display: none !important;
       }
 
-      .top-search-wrap { flex: 1; }
-      .top-search-bar { padding: 1px 8px; }
-      .btn-header-action { padding: 6px 9px; }
+      .mobile-user-tag {
+        display: block;
+        max-width: 140px; /* Más espacio para nombres largos */
+      }
+
+      .top-search-wrap {
+        order: 3;
+        flex: 0 0 100%;
+        max-width: 100%;
+      }
+
+      .btn-header-action { padding: 5px 8px; }
 
       .room-main { flex-direction: column; }
       .center-stage { width: 100%; height: auto; flex: none; }
