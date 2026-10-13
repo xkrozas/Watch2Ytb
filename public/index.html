@@ -23,6 +23,12 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     body { background-color: var(--bg-dark); color: var(--text-main); height: 100vh; height: 100dvh; overflow: hidden; }
 
+    /* Scrollbars oscuras personalizadas */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-panel); }
+    ::-webkit-scrollbar-thumb { background: #2e3846; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
     /* --- VISTA 1: HOME --- */
     #home-view {
       display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: var(--bg-dark);
@@ -35,7 +41,8 @@
       background: var(--accent-red); color: #fff; font-weight: 900; font-size: 1.1rem; padding: 2px 7px; border-radius: 4px;
     }
     .home-nav-links { display: flex; gap: 15px; font-size: 13px; color: var(--text-muted); }
-    .home-nav-links a { color: var(--text-muted); text-decoration: none; }
+    .home-nav-links a { color: var(--text-muted); text-decoration: none; transition: 0.2s; }
+    .home-nav-links a:hover { color: #fff; }
 
     .home-hero {
       flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;
@@ -49,6 +56,7 @@
     .btn-create-room {
       background: var(--accent-red); color: #fff; font-size: 1.1rem; font-weight: 700;
       padding: 14px 45px; border-radius: 6px; border: none; cursor: pointer; transition: 0.2s;
+      box-shadow: 0 8px 25px rgba(229, 9, 20, 0.35);
     }
     .btn-create-room:hover { background: var(--accent-red-hover); transform: translateY(-1px); }
     .hero-sub { margin-top: 15px; color: var(--text-muted); font-size: 13px; }
@@ -68,10 +76,12 @@
       width: 100%; padding: 12px; background: #0b0e13; border: 1px solid var(--border-color);
       border-radius: 4px; color: #fff; font-size: 15px; margin-bottom: 15px; outline: none; text-align: center;
     }
+    .guest-card input:focus { border-color: var(--accent-red); }
     .guest-card button {
       width: 100%; padding: 12px; background: var(--accent-red); border: none; border-radius: 4px;
-      color: #fff; font-size: 14px; font-weight: bold; cursor: pointer;
+      color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s;
     }
+    .guest-card button:hover { background: var(--accent-red-hover); }
 
     /* --- VISTA 2: SALA PRINCIPAL --- */
     #room-view { display: none; flex-direction: column; height: 100vh; height: 100dvh; }
@@ -79,32 +89,71 @@
     /* Barra Superior */
     .room-header {
       height: 52px; background: var(--bg-header); border-bottom: 1px solid var(--border-color);
-      display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 8px; z-index: 10; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 8px; z-index: 30; flex-shrink: 0;
     }
-    .room-info { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    .room-info {
+      display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted);
+      cursor: pointer; white-space: nowrap; flex-shrink: 0; padding: 5px 8px; border-radius: 4px; transition: 0.2s;
+    }
+    .room-info:hover { background: #1c222b; color: #fff; }
 
     /* Barra de Búsqueda Superior */
     .top-search-wrap { flex: 1; min-width: 0; max-width: 600px; position: relative; }
     .top-search-bar {
-      display: flex; align-items: center; background: #0b0e13; border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px;
+      display: flex; align-items: center; background: #0b0e13; border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px; transition: 0.2s;
     }
+    .top-search-bar:focus-within { border-color: var(--accent-red); }
     .top-search-bar input {
       flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #fff; font-size: 13px; padding: 6px 4px;
     }
     .search-btn-icon { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; flex-shrink: 0; }
+    .search-btn-icon:hover { color: #fff; }
 
-    .header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-    .user-counter { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 3px; }
+    .header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; position: relative; }
+
+    /* Contador y Desplegable de Usuarios */
+    .user-counter {
+      font-size: 12px; color: var(--text-main); display: flex; align-items: center; gap: 4px;
+      background: #1a202c; border: 1px solid var(--border-color); padding: 5px 9px; border-radius: 4px;
+      cursor: pointer; user-select: none; transition: 0.2s;
+    }
+    .user-counter:hover { border-color: var(--text-muted); background: #232b3a; }
+
+    .users-popover {
+      position: absolute; top: calc(100% + 8px); right: 0; width: 230px; background: #181f2a;
+      border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 12px 30px rgba(0,0,0,0.75);
+      padding: 10px; display: none; flex-direction: column; gap: 6px; z-index: 100;
+    }
+    .users-popover-title {
+      font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;
+      border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 2px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .users-popover-list { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+    .user-popover-item {
+      display: flex; align-items: center; justify-content: space-between; font-size: 12px;
+      padding: 5px 8px; border-radius: 4px; background: #11151d; border: 1px solid transparent;
+    }
+    .user-popover-item.is-host { border-color: rgba(229, 9, 20, 0.4); background: #231419; }
+    .user-popover-item.is-me { font-weight: 700; color: #fff; }
+    .edit-name-link {
+      font-size: 11px; color: var(--accent-red); cursor: pointer; text-align: center;
+      padding-top: 6px; border-top: 1px solid var(--border-color); font-weight: 600;
+    }
+    .edit-name-link:hover { text-decoration: underline; }
+
     .btn-header-action {
       background: #202733; color: #fff; border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 10px;
-      font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s;
     }
+    .btn-header-action:hover { background: #2a3342; }
     .btn-header-action.btn-invite-accent { background: var(--accent-red); border-color: var(--accent-red); font-weight: 700; }
     .btn-header-action.btn-invite-accent:hover { background: var(--accent-red-hover); }
 
     .mobile-user-tag {
-      display: none; background: #221417; color: var(--accent-red); font-size: 10px; font-weight: bold;
+      display: none; background: #221417; color: #ff8088; font-size: 10px; font-weight: bold;
       padding: 4px 7px; border-radius: 4px; border: 1px solid var(--accent-red); cursor: pointer;
+      max-width: 95px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
     /* Estructura Principal */
@@ -118,7 +167,7 @@
     .dock-top, .dock-bottom { display: flex; flex-direction: column; align-items: center; gap: 20px; }
     .dock-item {
       display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted);
-      font-size: 10px; cursor: pointer; text-decoration: none; position: relative;
+      font-size: 10px; cursor: pointer; text-decoration: none; position: relative; transition: 0.2s;
     }
     .dock-item:hover { color: #fff; }
     .dock-icon { font-size: 18px; }
@@ -132,8 +181,30 @@
 
     /* Escenario Central */
     .center-stage { flex: 1; display: flex; flex-direction: column; background: #000; position: relative; min-width: 0; }
-    .video-container { width: 100%; height: 100%; position: relative; }
+    .video-container { flex: 1; width: 100%; position: relative; min-height: 0; }
     #player { width: 100%; height: 100%; position: absolute; inset: 0; }
+
+    /* Barra Inferior de "Reproduciendo Ahora" */
+    .now-playing-bar {
+      height: 40px; background: var(--bg-header); border-top: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 10px; flex-shrink: 0;
+    }
+    .now-playing-info { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--accent-red); flex-shrink: 0;
+      box-shadow: 0 0 8px var(--accent-red);
+    }
+    .now-playing-title {
+      font-size: 12px; font-weight: 600; color: var(--text-main); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .btn-skip-next {
+      background: #202733; color: #fff; border: 1px solid var(--border-color); border-radius: 4px;
+      padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 5px; transition: 0.2s; flex-shrink: 0;
+    }
+    .btn-skip-next:hover:not(:disabled) { background: var(--accent-red); border-color: var(--accent-red); }
+    .btn-skip-next:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .unmute-banner {
       position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -157,9 +228,7 @@
     .drawer-nav { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px; }
     .drawer-title { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
 
-    .drawer-search-row {
-      display: flex; gap: 8px; margin-bottom: 12px;
-    }
+    .drawer-search-row { display: flex; gap: 8px; margin-bottom: 12px; }
     .drawer-search-row input {
       flex: 1; padding: 11px 14px; background: #080a0d; border: 1.5px solid var(--border-color);
       border-radius: 6px; color: #fff; font-size: 15px; outline: none;
@@ -176,8 +245,9 @@
 
     .search-results-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
     .w2g-card {
-      display: flex; gap: 10px; background: #151a22; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); align-items: center;
+      display: flex; gap: 10px; background: #151a22; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); align-items: center; transition: 0.15s;
     }
+    .w2g-card:hover { border-color: #384556; background: #19202a; }
     .w2g-card img { width: 95px; height: 55px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
     .w2g-card-info { flex: 1; min-width: 0; }
     .w2g-card-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -185,8 +255,9 @@
     .w2g-card-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
     .btn-action-w2g {
       background: #202733; color: #fff; border: 1px solid var(--border-color); padding: 5px 8px;
-      font-size: 11px; font-weight: 600; border-radius: 4px; cursor: pointer; white-space: nowrap;
+      font-size: 11px; font-weight: 600; border-radius: 4px; cursor: pointer; white-space: nowrap; transition: 0.15s;
     }
+    .btn-action-w2g:hover { background: #2c3545; }
     .btn-play-now { background: var(--accent-red); color: #fff; border: none; }
     .btn-play-now:hover { background: var(--accent-red-hover); }
 
@@ -198,33 +269,43 @@
     .side-tabs { display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-header); flex-shrink: 0; }
     .side-tab {
       flex: 1; padding: 11px 0; font-size: 11px; font-weight: 600; color: var(--text-muted);
-      border: none; background: transparent; cursor: pointer; text-align: center; border-bottom: 2px solid transparent; white-space: nowrap;
+      border: none; background: transparent; cursor: pointer; text-align: center; border-bottom: 2px solid transparent;
+      white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 5px;
     }
     .side-tab.active { color: var(--accent-red); border-bottom-color: var(--accent-red); }
+
+    .unread-badge {
+      background: var(--accent-red); color: #fff; font-size: 10px; font-weight: 800;
+      padding: 1px 6px; border-radius: 10px; line-height: 1.2;
+    }
 
     .side-tab-content { flex: 1; display: none; flex-direction: column; overflow: hidden; min-height: 0; }
     .side-tab-content.active { display: flex; }
 
     /* Chat */
     .chat-messages { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
-    .chat-msg { background: #101419; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border-color); word-break: break-word; }
-    .chat-user { font-weight: bold; color: var(--accent-red); margin-bottom: 2px; display: flex; align-items: center; gap: 4px; }
+    .chat-msg { background: #101419; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border-color); word-break: break-word; }
+    .chat-msg.is-me { border-left: 3px solid var(--accent-red); background: #141920; }
+    .chat-user { font-weight: bold; color: var(--accent-red); margin-bottom: 3px; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
     .chat-input-bar {
       display: flex; padding: 8px; background: var(--bg-header); border-top: 1px solid var(--border-color); gap: 6px; flex-shrink: 0;
     }
     .chat-input-bar input {
-      flex: 1; background: #0b0e13; border: 1px solid var(--border-color); padding: 7px 10px; border-radius: 4px; color: #fff; font-size: 12px; outline: none;
+      flex: 1; background: #0b0e13; border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 4px; color: #fff; font-size: 12px; outline: none;
     }
-    .chat-send-btn { background: var(--accent-red); color: #fff; border: none; border-radius: 4px; padding: 0 12px; cursor: pointer; font-weight: bold; }
+    .chat-input-bar input:focus { border-color: var(--accent-red); }
+    .chat-send-btn { background: var(--accent-red); color: #fff; border: none; border-radius: 4px; padding: 0 14px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .chat-send-btn:hover { background: var(--accent-red-hover); }
 
-    /* Cola */
+    /* Cola e Historial */
     .queue-items { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
     .queue-card {
       display: flex; gap: 8px; background: #11151c; padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); align-items: center;
     }
     .queue-card img { width: 55px; height: 32px; object-fit: cover; border-radius: 2px; flex-shrink: 0; }
     .queue-card-title { flex: 1; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .btn-remove-queue { background: transparent; border: none; color: #ff5252; cursor: pointer; padding: 4px; }
+    .btn-remove-queue { background: transparent; border: none; color: #ff5252; cursor: pointer; padding: 4px 6px; border-radius: 4px; }
+    .btn-remove-queue:hover { background: rgba(255, 82, 82, 0.15); }
 
     /* Modales */
     .modal-overlay {
@@ -235,7 +316,7 @@
       background: #1c222c; width: 100%; max-width: 500px; border-radius: 8px;
       box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6); overflow: hidden; border: 1px solid #2e3846;
     }
-    .modal-box-header { padding: 16px 20px; font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid #2e3846; display: flex; align-items: center; gap: 8px; }
+    .modal-box-header { padding: 16px 20px; font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid #2e3846; display: flex; align-items: center; justify-content: space-between; }
     .modal-box-body { padding: 20px; font-size: 13px; }
     .modal-box-footer { padding: 12px 20px; background: #161b22; display: flex; justify-content: flex-end; gap: 8px; }
 
@@ -244,9 +325,10 @@
 
     .perm-group { margin-bottom: 15px; background: #13171f; padding: 12px; border-radius: 6px; border: 1px solid #252e3b; }
     .perm-group label { display: block; font-weight: 600; margin-bottom: 6px; }
-    .perm-group select {
-      width: 100%; padding: 8px 10px; background: #0f1218; border: 1px solid #2e3846; color: #fff; border-radius: 4px; outline: none; font-size: 12px;
+    .perm-group select, .modal-input {
+      width: 100%; padding: 9px 10px; background: #0f1218; border: 1px solid #2e3846; color: #fff; border-radius: 4px; outline: none; font-size: 13px;
     }
+    .modal-input:focus { border-color: var(--accent-red); }
     .host-badge-info {
       background: #25171a; border: 1px solid var(--accent-red); padding: 10px; border-radius: 6px; margin-bottom: 15px; color: #ffb8be; font-size: 12px;
     }
@@ -257,7 +339,8 @@
     @media (max-width: 768px) {
       .top-search-bar input,
       .drawer-search-row input,
-      .chat-input-bar input {
+      .chat-input-bar input,
+      .modal-input {
         font-size: 16px !important;
       }
 
@@ -266,13 +349,13 @@
 
       .left-dock { display: none; }
       .mobile-user-tag { display: block; }
-
       .hide-mobile-text { display: none; }
-
       .btn-header-action { padding: 5px 8px; }
 
       .room-main { flex-direction: column; }
-      .center-stage { width: 100%; height: auto; aspect-ratio: 16 / 9; flex: none; }
+      .center-stage { width: 100%; height: auto; flex: none; }
+      .video-container { width: 100%; height: auto; aspect-ratio: 16 / 9; flex: none; }
+      .now-playing-bar { height: 36px; padding: 0 10px; }
       .right-sidebar { width: 100%; flex: 1; border-left: none; border-top: 1px solid var(--border-color); min-height: 0; }
 
       .search-drawer {
@@ -319,7 +402,7 @@
   <!-- VISTA 2: SALA -->
   <div id="room-view">
     <header class="room-header">
-      <div class="room-info" onclick="openInviteModal()" title="Copiar enlace">
+      <div class="room-info" onclick="openInviteModal()" title="Copiar enlace de la sala">
         <span>Temporary Room</span> 📋
       </div>
 
@@ -334,8 +417,21 @@
 
       <!-- Acciones de Cabecera -->
       <div class="header-right">
-        <div class="mobile-user-tag" id="mobile-user-tag" onclick="promptChangeName()">User-...</div>
-        <div class="user-counter">👤 <span id="room-user-count">1</span></div>
+        <div class="mobile-user-tag" id="mobile-user-tag" onclick="openChangeNameModal()" title="Cambiar nombre">User-...</div>
+        <div class="user-counter" onclick="toggleUsersPopover(event)" title="Ver participantes conectados">
+          👤 <span id="room-user-count">1</span> ▾
+        </div>
+
+        <!-- Popover de Participantes -->
+        <div class="users-popover" id="users-popover" onclick="event.stopPropagation()">
+          <div class="users-popover-title">
+            <span>Participantes</span>
+            <span id="popover-user-count">1</span>
+          </div>
+          <div class="users-popover-list" id="users-popover-list"></div>
+          <div class="edit-name-link" onclick="openChangeNameModal()">✏️ Cambiar mi nombre</div>
+        </div>
+
         <button class="btn-header-action" onclick="openPermissionsModal()" title="Permisos">
           <span>🔒</span><span class="hide-mobile-text"> Permisos</span>
         </button>
@@ -351,20 +447,20 @@
         <div class="dock-top">
           <div class="dock-item" onclick="openInviteModal()">
             <span class="dock-icon">⚙️</span>
-            <span>Parámetros</span>
+            <span>Invitar</span>
           </div>
           <div class="dock-item" onclick="openPermissionsModal()">
             <span class="dock-icon">🔒</span>
             <span>Permisos</span>
           </div>
-          <div class="dock-item" onclick="showToastAlert('💡 Usa el buscador superior para reproducir cualquier vídeo.')">
+          <div class="dock-item" onclick="showToastAlert('💡 Usa el buscador superior para reproducir o añadir vídeos a la cola.')">
             <span class="dock-icon">❓</span>
             <span>Ayuda</span>
           </div>
         </div>
 
         <div class="dock-bottom">
-          <div class="dock-item" onclick="promptChangeName()" title="Haz clic para cambiar tu nombre">
+          <div class="dock-item" onclick="openChangeNameModal()" title="Haz clic para cambiar tu nombre">
             <div class="dock-avatar">
               <span id="dock-crown" class="host-crown" style="display: none;">👑</span>
               <span>👤</span>
@@ -382,6 +478,17 @@
           <div id="unmute-banner" class="unmute-banner" onclick="unmutePlayer()">
             🔊 Toca aquí para activar el sonido
           </div>
+        </div>
+
+        <!-- Barra de "Reproduciendo Ahora" -->
+        <div class="now-playing-bar">
+          <div class="now-playing-info">
+            <span class="live-dot"></span>
+            <span class="now-playing-title" id="now-playing-title">Cargando sala...</span>
+          </div>
+          <button class="btn-skip-next" id="btn-skip-next" onclick="skipToNextVideo()" disabled title="No hay vídeos en la cola">
+            ⏭️ <span class="hide-mobile-text">Siguiente</span>
+          </button>
         </div>
 
         <!-- Cajón Desplegable del Buscador -->
@@ -411,9 +518,16 @@
       <!-- Barra Lateral / Inferior -->
       <aside class="right-sidebar">
         <div class="side-tabs">
-          <button class="side-tab active" onclick="switchSideTab('chat')">Chat</button>
-          <button class="side-tab" onclick="switchSideTab('playlist')">Listas (<span id="queue-counter">0</span>)</button>
-          <button class="side-tab" onclick="switchSideTab('history')">Historial</button>
+          <button class="side-tab active" onclick="switchSideTab('chat')">
+            <span>Chat</span>
+            <span id="chat-unread-badge" class="unread-badge" style="display: none;">0</span>
+          </button>
+          <button class="side-tab" onclick="switchSideTab('playlist')">
+            <span>Listas (<span id="queue-counter">0</span>)</span>
+          </button>
+          <button class="side-tab" onclick="switchSideTab('history')">
+            <span>Historial</span>
+          </button>
         </div>
 
         <div id="tab-chat" class="side-tab-content active">
@@ -444,9 +558,11 @@
   <!-- MODAL DE INVITACIÓN -->
   <div class="modal-overlay" id="invite-modal">
     <div class="modal-box">
-      <div class="modal-box-header">¡Invita a tus amigos a ver contigo!</div>
+      <div class="modal-box-header">
+        <span>¡Invita a tus amigos a ver contigo!</span>
+      </div>
       <div class="modal-box-body">
-        <label style="font-size: 13px; font-weight: 600;">Envíales el Enlace de abajo:</label>
+        <label style="font-size: 13px; font-weight: 600;">Envíales el enlace de abajo:</label>
         <div style="display: flex; margin-top: 10px;">
           <input type="text" id="invite-url-input" readonly style="flex: 1; padding: 10px; background: #fff; color: #000; border: none; font-size: 13px; border-radius: 4px 0 0 4px; outline: none;">
           <button onclick="copyInviteUrl()" style="background: var(--accent-blue); color: #fff; border: none; padding: 0 18px; font-size: 13px; font-weight: bold; border-radius: 0 4px 4px 0; cursor: pointer;">Copiar</button>
@@ -465,7 +581,9 @@
   <!-- MODAL DE PERMISOS -->
   <div class="modal-overlay" id="permissions-modal">
     <div class="modal-box">
-      <div class="modal-box-header">🔒 Permisos de la Sala</div>
+      <div class="modal-box-header">
+        <span>🔒 Permisos de la Sala</span>
+      </div>
       <div class="modal-box-body">
         <div class="host-badge-info" id="perm-role-msg">
           Cargando permisos...
@@ -502,8 +620,24 @@
     </div>
   </div>
 
+  <!-- MODAL CAMBIAR NOMBRE -->
+  <div class="modal-overlay" id="name-modal">
+    <div class="modal-box" style="max-width: 380px;">
+      <div class="modal-box-header">
+        <span>✏️ Cambiar tu nombre</span>
+      </div>
+      <div class="modal-box-body">
+        <label style="display: block; font-weight: 600; margin-bottom: 8px;">Nuevo nombre de usuario:</label>
+        <input type="text" id="change-name-input" class="modal-input" maxlength="20" placeholder="Escribe tu nombre...">
+      </div>
+      <div class="modal-box-footer">
+        <button class="btn-modal-close" onclick="closeChangeNameModal()">Cancelar</button>
+        <button class="btn-modal-save" onclick="saveNewName()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // Función de sanitización para evitar XSS
     function escapeHTML(str) {
       return String(str || '').replace(/[&<>'"]/g, (tag) => ({
         '&': '&amp;',
@@ -530,6 +664,9 @@
 
     let isHost = false;
     let roomPermissions = { controlPlayer: 'all', manageVideos: 'all', chat: 'all' };
+    let currentTab = 'chat';
+    let unreadChatCount = 0;
+    let currentQueueLength = 0;
 
     if (roomId) {
       document.getElementById('home-view').style.display = 'none';
@@ -547,11 +684,32 @@
       document.getElementById('room-view').style.display = 'none';
     }
 
+    // Cerrar modales al hacer clic fuera o pulsar Escape
+    document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.style.display = 'none';
+      });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeInviteModal();
+        closePermissionsModal();
+        closeChangeNameModal();
+        closeSearchDrawer();
+        document.getElementById('users-popover').style.display = 'none';
+      }
+    });
+
+    document.addEventListener('click', () => {
+      document.getElementById('users-popover').style.display = 'none';
+    });
+
     function confirmGuestEntry() {
       hasUserInteracted = true;
       const inp = document.getElementById('guest-name-input').value.trim();
       if (inp) {
-        myUsername = inp;
+        myUsername = inp.substring(0, 25);
         localStorage.setItem('w2g_username', myUsername);
       }
       document.getElementById('guest-modal').style.display = 'none';
@@ -686,6 +844,7 @@
       localStorage.setItem('w2g_username', myUsername);
       document.getElementById('dock-username').innerText = myUsername;
       document.getElementById('mobile-user-tag').innerText = (isHost ? '👑 ' : '') + myUsername;
+      document.getElementById('now-playing-title').innerText = data.videoTitle || 'Vídeo de YouTube';
 
       updateHostVisuals();
       applyPermissionsToUI();
@@ -724,6 +883,32 @@
         chatInput.disabled = false;
         chatInput.placeholder = 'Escribe un mensaje...';
       }
+      updateSkipButtonState();
+    }
+
+    function updateSkipButtonState() {
+      const skipBtn = document.getElementById('btn-skip-next');
+      const blockedByPerms = roomPermissions.manageVideos === 'host' && !isHost;
+      if (currentQueueLength === 0) {
+        skipBtn.disabled = true;
+        skipBtn.title = 'No hay vídeos en la cola';
+      } else if (blockedByPerms) {
+        skipBtn.disabled = true;
+        skipBtn.title = 'Solo el anfitrión puede pasar al siguiente vídeo';
+      } else {
+        skipBtn.disabled = false;
+        skipBtn.title = `Pasar al siguiente vídeo (${currentQueueLength} en cola)`;
+      }
+    }
+
+    function skipToNextVideo() {
+      if (roomPermissions.manageVideos === 'host' && !isHost) {
+        showToastAlert('🔒 Solo el anfitrión puede cambiar vídeos.');
+        return;
+      }
+      if (currentQueueLength > 0) {
+        socket.emit('video-ended');
+      }
     }
 
     function showToastAlert(text) {
@@ -734,11 +919,10 @@
       toastTimeout = setTimeout(() => { t.style.display = 'none'; }, 3000);
     }
 
-socket.on('heartbeat-sync', (data) => {
+    socket.on('heartbeat-sync', (data) => {
       if (!isPlayerReady || !player || typeof player.getCurrentTime !== 'function' || isRemoteAction) return;
-      
+
       const st = player.getPlayerState();
-      // Si el vídeo ya ha terminado en el reproductor, ignorar el heartbeat
       if (st === YT.PlayerState.ENDED) return;
 
       const drift = Math.abs(player.getCurrentTime() - data.currentTime);
@@ -756,6 +940,7 @@ socket.on('heartbeat-sync', (data) => {
     });
 
     socket.on('video-changed', (data) => {
+      document.getElementById('now-playing-title').innerText = data.title || 'Vídeo de YouTube';
       safeLoad(data.videoId, 0, true);
     });
 
@@ -782,9 +967,31 @@ socket.on('heartbeat-sync', (data) => {
       }
     });
 
+    // Actualización de lista de participantes
     socket.on('room-users-updated', (users) => {
       document.getElementById('room-user-count').innerText = users.length;
+      document.getElementById('popover-user-count').innerText = `${users.length} conectado(s)`;
+
+      const listEl = document.getElementById('users-popover-list');
+      listEl.innerHTML = '';
+
+      users.forEach((u) => {
+        const row = document.createElement('div');
+        const isMe = u.name === myUsername;
+        row.className = `user-popover-item ${u.isHost ? 'is-host' : ''} ${isMe ? 'is-me' : ''}`;
+        row.innerHTML = `
+          <span>${u.isHost ? '👑 ' : '👤 '}${escapeHTML(u.name)}</span>
+          ${isMe ? '<span style="font-size: 10px; color: var(--text-muted);">(Tú)</span>' : ''}
+        `;
+        listEl.appendChild(row);
+      });
     });
+
+    function toggleUsersPopover(e) {
+      e.stopPropagation();
+      const pop = document.getElementById('users-popover');
+      pop.style.display = pop.style.display === 'flex' ? 'none' : 'flex';
+    }
 
     socket.on('room-deleted', () => {
       alert('Esta sala ha sido eliminada o cerrada por el administrador.');
@@ -889,7 +1096,10 @@ socket.on('heartbeat-sync', (data) => {
     socket.on('history-updated', (list) => { renderHistory(list); });
 
     function renderPlaylist(list) {
+      currentQueueLength = list.length;
       document.getElementById('queue-counter').innerText = list.length;
+      updateSkipButtonState();
+
       const c = document.getElementById('queue-items');
       c.innerHTML = '';
       if (list.length === 0) {
@@ -949,23 +1159,34 @@ socket.on('heartbeat-sync', (data) => {
     socket.on('new-chat-message', (msg) => {
       const container = document.getElementById('chat-messages');
       const div = document.createElement('div');
-      div.className = 'chat-msg';
+      const isMe = msg.user === myUsername;
+      div.className = `chat-msg ${isMe ? 'is-me' : ''}`;
       div.innerHTML = `
         <div class="chat-user">
-          ${msg.isHost ? '👑 ' : ''}${escapeHTML(msg.user)}
+          <span>${msg.isHost ? '👑 ' : ''}${escapeHTML(msg.user)}</span>
           <span style="font-size: 10px; color: var(--text-muted); font-weight: normal;">${escapeHTML(msg.time)}</span>
         </div>
         <div>${escapeHTML(msg.text)}</div>
       `;
       container.appendChild(div);
       container.scrollTop = container.scrollHeight;
+
+      if (currentTab !== 'chat') {
+        unreadChatCount++;
+        const badge = document.getElementById('chat-unread-badge');
+        badge.innerText = unreadChatCount;
+        badge.style.display = 'inline-block';
+      }
     });
 
     function switchSideTab(tab) {
+      currentTab = tab;
       document.querySelectorAll('.side-tab').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.side-tab-content').forEach(c => c.classList.remove('active'));
 
       if (tab === 'chat') {
+        unreadChatCount = 0;
+        document.getElementById('chat-unread-badge').style.display = 'none';
         document.querySelectorAll('.side-tab')[0].classList.add('active');
         document.getElementById('tab-chat').classList.add('active');
       } else if (tab === 'playlist') {
@@ -1038,16 +1259,34 @@ socket.on('heartbeat-sync', (data) => {
       closePermissionsModal();
     }
 
-    function promptChangeName() {
-      const n = prompt('Introduce tu nuevo nombre:', myUsername);
-      if (n && n.trim()) {
-        myUsername = n.trim().substring(0, 25);
+    function openChangeNameModal() {
+      document.getElementById('users-popover').style.display = 'none';
+      const input = document.getElementById('change-name-input');
+      input.value = myUsername;
+      document.getElementById('name-modal').style.display = 'flex';
+      setTimeout(() => input.focus(), 50);
+    }
+
+    function closeChangeNameModal() {
+      document.getElementById('name-modal').style.display = 'none';
+    }
+
+    function saveNewName() {
+      const n = document.getElementById('change-name-input').value.trim();
+      if (n) {
+        myUsername = n.substring(0, 25);
         localStorage.setItem('w2g_username', myUsername);
         document.getElementById('dock-username').innerText = myUsername;
         document.getElementById('mobile-user-tag').innerText = (isHost ? '👑 ' : '') + myUsername;
         socket.emit('change-username', myUsername);
+        showToastAlert('✅ Nombre actualizado');
       }
+      closeChangeNameModal();
     }
+
+    document.getElementById('change-name-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') saveNewName();
+    });
   </script>
 </body>
 </html>
