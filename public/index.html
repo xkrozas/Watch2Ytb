@@ -336,7 +336,7 @@
     /* ==========================================================================
        OPTIMIZACIÓN MÓVIL ESPECÍFICA (PANTALLAS <= 768px)
        ========================================================================== */
-    @media (max-width: 768px) {
+@media (max-width: 768px) {
       .top-search-bar input,
       .drawer-search-row input,
       .chat-input-bar input,
@@ -345,12 +345,19 @@
       }
 
       .room-header { padding: 0 8px; gap: 6px; }
-      .room-info span { display: none; }
+      
+      /* Ocultamos elementos duplicados en móvil para darle todo el ancho al buscador */
+      .room-info,
+      .left-dock,
+      .mobile-user-tag,
+      #btn-clear-search,
+      .hide-mobile-text {
+        display: none !important;
+      }
 
-      .left-dock { display: none; }
-      .mobile-user-tag { display: block; }
-      .hide-mobile-text { display: none; }
-      .btn-header-action { padding: 5px 8px; }
+      .top-search-wrap { flex: 1; }
+      .top-search-bar { padding: 1px 8px; }
+      .btn-header-action { padding: 6px 9px; }
 
       .room-main { flex-direction: column; }
       .center-stage { width: 100%; height: auto; flex: none; }
