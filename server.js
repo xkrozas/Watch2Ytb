@@ -278,7 +278,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('video-ended', () => {
+socket.on('video-ended', () => {
     if (!currentRoom || !rooms[currentRoom]) return;
     const room = rooms[currentRoom];
     const now = Date.now();
@@ -299,6 +299,12 @@ io.on('connection', (socket) => {
       io.to(currentRoom).emit('video-changed', { videoId: room.videoId, title: room.videoTitle });
       io.to(currentRoom).emit('playlist-updated', room.playlist);
       io.to(currentRoom).emit('history-updated', room.history);
+      notifyAdmins();
+    } else {
+      // Si la cola está vacía, detenemos el estado de reproducción de la sala
+      room.isPlaying = false;
+      room.currentTime = getCurrentVideoTime(room);
+      room.lastUpdated = Date.now();
       notifyAdmins();
     }
   });
