@@ -145,10 +145,19 @@
   </div>
 
   <script>
+    function escapeHTML(str) {
+      return String(str || '').replace(/[&<>'"]/g, (tag) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[tag]));
+    }
+
     const socket = io();
     let savedPassword = sessionStorage.getItem('w2g_admin_pass') || '';
 
-    // Si ya inició sesión anteriormente en la pestaña, entrar directo
     if (savedPassword) {
       socket.emit('admin-auth', savedPassword);
     }
@@ -199,24 +208,26 @@
         const tr = document.createElement('tr');
         const userBadgeClass = r.usersCount > 0 ? 'badge-users' : 'badge-empty';
 
-        // Renderizado de lista de usuarios con corona para el anfitrión
         let usersHtml = '';
         if (r.users && r.users.length > 0) {
           usersHtml = r.users.map(u => 
-            `<span class="user-pill ${u.isHost ? 'is-host' : ''}">${u.isHost ? '👑 ' : ''}${u.name}</span>`
+            `<span class="user-pill ${u.isHost ? 'is-host' : ''}">${u.isHost ? '👑 ' : ''}${escapeHTML(u.name)}</span>`
           ).join('');
         } else {
-          usersHtml = '<span style="color: var(--text-muted); font-size: 11px;">Sin usuarios</span>';
+          usersHtml = '<span style="color: var(--text-muted); font-size: 11px;">Sin usuarios (pendiente de limpieza)</span>';
         }
 
-        // Permisos de la sala
         const permControl = r.permissions.controlPlayer === 'host' ? '🔒 Controles: Host' : '👥 Controles: Todos';
         const permManage = r.permissions.manageVideos === 'host' ? '🔒 Vídeos: Host' : '👥 Vídeos: Todos';
         const permChat = r.permissions.chat === 'host' ? '🔒 Chat: Host' : '👥 Chat: Todos';
 
+        const safeRoomId = escapeHTML(r.id);
+        const safeVideoTitle = escapeHTML(r.videoTitle);
+        const safeVideoId = escapeHTML(r.videoId);
+
         tr.innerHTML = `
           <td>
-            <span class="room-tag">${r.id}</span>
+            <span class="room-tag">${safeRoomId}</span>
           </td>
           <td>
             <div style="margin-bottom: 5px;">
@@ -225,10 +236,10 @@
             <div>${usersHtml}</div>
           </td>
           <td class="video-cell">
-            <div class="video-title" title="${r.videoTitle}">${r.videoTitle}</div>
+            <div class="video-title" title="${safeVideoTitle}">${safeVideoTitle}</div>
             <div class="video-state">
               ${r.isPlaying ? '▶️ Reproduciendo' : '⏸️ En pausa'} • 
-              <a href="https://youtube.com/watch?v=${r.videoId}" target="_blank" style="color: #60a5fa; text-decoration: none;">Ver en YT</a>
+              <a href="https://youtube.com/watch?v=${safeVideoId}" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: none;">Ver en YT</a>
               • 📑 ${r.queueCount} en cola
             </div>
           </td>
@@ -238,10 +249,12 @@
             <div><span class="perm-badge">${permChat}</span></div>
           </td>
           <td>
-            <a href="/?r=${r.id}" target="_blank" class="btn-view">👁️ Entrar</a>
-            <button class="btn-delete" onclick="deleteRoom('${r.id}')">🗑️ Eliminar</button>
+            <a href="/?r=${encodeURIComponent(r.id)}" target="_blank" class="btn-view">👁️ Entrar</a>
+            <button class="btn-delete">🗑️ Eliminar</button>
           </td>
         `;
+
+        tr.querySelector('.btn-delete').addEventListener('click', () => deleteRoom(r.id));
         tbody.appendChild(tr);
       });
     }
