@@ -8,141 +8,434 @@
   <script src="/socket.io/socket.io.js"></script>
   <style>
     :root {
-      --bg-dark: #0f1216;
-      --bg-panel: #161b22;
-      --bg-header: #12161c;
+      --bg-dark: #0b0e12;
+      --bg-panel: #131820;
+      --bg-panel-hover: #181f2a;
+      --bg-header: #0f1319;
       --accent-red: #e50914;
       --accent-red-hover: #b80710;
-      --accent-blue: #2574a9;
+      --accent-green: #22c55e;
+      --accent-blue: #3b82f6;
       --text-main: #f1f5f9;
-      --text-muted: #8c9ba5;
-      --border-color: #242c37;
+      --text-muted: #8b9bb0;
+      --border-color: #222b38;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; padding: 25px 15px; }
-    .container { max-width: 1150px; margin: 0 auto; }
+    body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; }
 
-    /* Login Box */
+    /* Scrollbars oscuras */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-dark); }
+    ::-webkit-scrollbar-thumb { background: #2e3846; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* --- PANTALLA DE LOGIN --- */
     #login-screen {
-      max-width: 380px; margin: 120px auto; background: var(--bg-panel); padding: 30px;
-      border-radius: 8px; border: 1px solid var(--border-color); text-align: center;
-      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+      background: radial-gradient(circle at top, rgba(229, 9, 20, 0.12), transparent 55%);
     }
-    #login-screen h2 { margin-bottom: 20px; font-size: 1.3rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    input[type="password"] {
-      width: 100%; padding: 12px; border-radius: 4px; border: 1px solid var(--border-color);
-      background: #0b0e13; color: white; margin-bottom: 15px; font-size: 14px; outline: none; text-align: center;
+    .login-card {
+      width: 100%; max-width: 400px; background: var(--bg-panel); padding: 35px 30px;
+      border-radius: 12px; border: 1px solid var(--border-color); text-align: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
     }
-    input[type="password"]:focus { border-color: var(--accent-red); }
+    .login-logo {
+      width: 48px; height: 48px; background: var(--accent-red); color: #fff; font-weight: 900;
+      font-size: 1.6rem; border-radius: 10px; display: inline-flex; align-items: center;
+      justify-content: center; margin-bottom: 15px; box-shadow: 0 8px 20px rgba(229, 9, 20, 0.35);
+    }
+    .login-card h2 { font-size: 1.35rem; font-weight: 800; margin-bottom: 6px; }
+    .login-card p.sub { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+    .login-input-wrap { position: relative; margin-bottom: 15px; }
+    .login-input-wrap input {
+      width: 100%; padding: 13px 15px; border-radius: 8px; border: 1px solid var(--border-color);
+      background: #080a0e; color: #fff; font-size: 15px; outline: none; text-align: center; transition: 0.2s;
+    }
+    .login-input-wrap input:focus { border-color: var(--accent-red); box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.15); }
+    .btn-primary {
+      background: var(--accent-red); color: #fff; border: none; padding: 12px 18px;
+      border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 14px; transition: 0.2s;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-primary:hover { background: var(--accent-red-hover); transform: translateY(-1px); }
+    .error-banner {
+      background: rgba(229, 9, 20, 0.12); border: 1px solid rgba(229, 9, 20, 0.4);
+      color: #ff8088; font-size: 12px; font-weight: 600; padding: 9px; border-radius: 6px;
+      margin-top: 14px; display: none;
+    }
 
-    button {
-      background: var(--accent-red); color: #fff; border: none; padding: 10px 16px;
-      border-radius: 4px; cursor: pointer; font-weight: 700; font-size: 13px; transition: 0.2s;
-    }
-    button:hover { background: var(--accent-red-hover); }
+    /* --- DASHBOARD PRINCIPAL --- */
+    #dashboard { display: none; padding-bottom: 50px; }
 
-    /* Dashboard */
-    #dashboard { display: none; }
-    header {
-      display: flex; justify-content: space-between; align-items: center;
-      border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px;
+    .topbar {
+      background: var(--bg-header); border-bottom: 1px solid var(--border-color);
+      padding: 14px 24px; position: sticky; top: 0; z-index: 40;
     }
-    .brand-title { font-size: 1.3rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
-    .w2g-badge { background: var(--accent-red); color: #fff; font-size: 11px; padding: 3px 6px; border-radius: 4px; }
+    .topbar-inner {
+      max-width: 1280px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    .brand-title { font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+    .w2g-icon-sm {
+      background: var(--accent-red); color: #fff; font-weight: 900; font-size: 14px;
+      padding: 4px 8px; border-radius: 6px;
+    }
+    .w2g-badge {
+      background: rgba(229, 9, 20, 0.15); color: #ff8088; border: 1px solid rgba(229, 9, 20, 0.35);
+      font-size: 11px; padding: 3px 8px; border-radius: 20px; font-weight: 700;
+    }
 
-    /* Tarjetas de estadísticas */
-    .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px; }
+    .topbar-actions { display: flex; align-items: center; gap: 10px; }
+    .conn-pill {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+      padding: 5px 10px; border-radius: 20px; background: #112218; color: #4ade80; border: 1px solid #166534;
+    }
+    .conn-pill.offline { background: #2a1215; color: #f87171; border-color: #7f1d1d; }
+    .pulse-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .btn-ghost {
+      background: #1a212d; color: var(--text-main); border: 1px solid var(--border-color);
+      padding: 7px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+      text-decoration: none; display: inline-flex; align-items: center; gap: 5px; transition: 0.2s;
+    }
+    .btn-ghost:hover { background: #252f3f; border-color: #364459; }
+
+    .container { max-width: 1280px; margin: 25px auto 0; padding: 0 20px; }
+
+    /* --- TARJETAS DE ESTADÍSTICAS --- */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;
+    }
     .stat-card {
-      background: var(--bg-panel); padding: 18px 20px; border-radius: 8px;
-      border: 1px solid var(--border-color); border-left: 4px solid var(--accent-red);
+      background: var(--bg-panel); padding: 18px 20px; border-radius: 10px;
+      border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
     }
-    .stat-card .label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
-    .stat-card .num { font-size: 26px; font-weight: 800; margin-top: 6px; color: #fff; }
+    .stat-info .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+    .stat-info .num { font-size: 28px; font-weight: 800; margin-top: 4px; color: #fff; }
+    .stat-icon {
+      width: 44px; height: 44px; border-radius: 10px; background: rgba(229, 9, 20, 0.12);
+      border: 1px solid rgba(229, 9, 20, 0.25); display: flex; align-items: center;
+      justify-content: center; font-size: 20px; flex-shrink: 0;
+    }
 
-    /* Tabla de salas */
-    .table-responsive { width: 100%; overflow-x: auto; background: var(--bg-panel); border-radius: 8px; border: 1px solid var(--border-color); }
+    /* --- BARRA DE HERRAMIENTAS Y FILTROS --- */
+    .toolbar {
+      background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 10px;
+      padding: 14px 16px; margin-bottom: 18px; display: flex; flex-wrap: wrap;
+      align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .search-box {
+      flex: 1; min-width: 240px; display: flex; align-items: center; gap: 8px;
+      background: #090c10; border: 1px solid var(--border-color); border-radius: 7px; padding: 8px 12px;
+    }
+    .search-box:focus-within { border-color: var(--accent-red); }
+    .search-box input {
+      flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 13px;
+    }
+
+    .toolbar-right { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .filter-tabs { display: flex; background: #090c10; padding: 3px; border-radius: 7px; border: 1px solid var(--border-color); }
+    .filter-tab {
+      background: transparent; border: none; color: var(--text-muted); font-size: 12px; font-weight: 600;
+      padding: 6px 11px; border-radius: 5px; cursor: pointer; transition: 0.15s; white-space: nowrap;
+    }
+    .filter-tab.active { background: var(--accent-red); color: #fff; }
+    .filter-tab:hover:not(.active) { color: #fff; }
+
+    .btn-clean-empty {
+      background: #271519; color: #ff8088; border: 1px solid rgba(229, 9, 20, 0.45);
+      padding: 7px 12px; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer;
+      display: none; align-items: center; gap: 5px; transition: 0.2s;
+    }
+    .btn-clean-empty:hover { background: var(--accent-red); color: #fff; }
+
+    /* --- TABLA DE SALAS --- */
+    .table-wrap {
+      background: var(--bg-panel); border-radius: 10px; border: 1px solid var(--border-color);
+      overflow: hidden; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    }
     table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
-    th, td { padding: 14px 16px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-    th { background: #12161c; color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+    th, td { padding: 15px 16px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    th {
+      background: #0d1117; color: var(--text-muted); text-transform: uppercase;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+    }
+    tbody tr { transition: background 0.15s; }
+    tbody tr:hover { background: var(--bg-panel-hover); }
+    tbody tr:last-child td { border-bottom: none; }
 
-    .room-tag { font-weight: 700; color: #fff; background: #0b0e13; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); font-family: monospace; font-size: 12px; }
-    .badge-users { background: #14281a; color: #4ade80; border: 1px solid #166534; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
-    .badge-empty { background: #22272f; color: var(--text-muted); padding: 3px 8px; border-radius: 12px; font-size: 11px; }
+    /* Celdas personalizadas */
+    .room-id-wrap { display: flex; align-items: center; gap: 6px; }
+    .room-tag {
+      font-weight: 700; color: #fff; background: #080a0e; padding: 5px 9px;
+      border-radius: 6px; border: 1px solid var(--border-color); font-family: monospace; font-size: 12px;
+    }
+    .btn-icon-copy {
+      background: #1a212d; border: 1px solid var(--border-color); color: var(--text-muted);
+      width: 28px; height: 28px; border-radius: 6px; cursor: pointer; display: inline-flex;
+      align-items: center; justify-content: center; font-size: 12px; transition: 0.15s;
+    }
+    .btn-icon-copy:hover { color: #fff; border-color: var(--text-muted); background: #242d3d; }
 
-    .user-pill { display: inline-block; font-size: 11px; background: #1f2733; padding: 2px 6px; border-radius: 4px; margin: 2px 2px 2px 0; }
-    .user-pill.is-host { background: #3b1b22; color: #ff8088; border: 1px solid var(--accent-red); font-weight: 700; }
+    .badge-users {
+      display: inline-flex; align-items: center; gap: 4px; background: #112618; color: #4ade80;
+      border: 1px solid #166534; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700;
+    }
+    .badge-empty {
+      display: inline-flex; align-items: center; gap: 4px; background: #1c222b; color: var(--text-muted);
+      border: 1px solid var(--border-color); padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 600;
+    }
 
-    .video-cell { max-width: 250px; }
-    .video-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .video-state { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .users-list-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; max-width: 260px; }
+    .user-pill {
+      display: inline-flex; align-items: center; gap: 3px; font-size: 11px; background: #1c2430;
+      padding: 3px 7px; border-radius: 5px; border: 1px solid #2b3545; color: #e2e8f0;
+    }
+    .user-pill.is-host {
+      background: #32161c; color: #ff9ca2; border-color: rgba(229, 9, 20, 0.5); font-weight: 700;
+    }
 
-    .perm-badge { display: inline-block; font-size: 10px; padding: 2px 5px; border-radius: 3px; background: #1f2733; color: var(--text-muted); margin-top: 2px; }
+    /* Celda de Vídeo con Miniatura */
+    .video-media { display: flex; align-items: center; gap: 12px; max-width: 320px; }
+    .video-thumb {
+      width: 84px; height: 48px; border-radius: 6px; object-fit: cover; flex-shrink: 0;
+      background: #080a0e; border: 1px solid var(--border-color);
+    }
+    .video-meta { min-width: 0; flex: 1; }
+    .video-title {
+      font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; margin-bottom: 4px;
+    }
+    .video-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
+    .state-badge {
+      display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 10px;
+      padding: 2px 6px; border-radius: 4px; text-transform: uppercase;
+    }
+    .state-playing { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+    .state-paused { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+    .yt-link { color: #60a5fa; text-decoration: none; font-weight: 600; }
+    .yt-link:hover { text-decoration: underline; }
 
-    .btn-view { background: #1f2937; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 4px; color: #fff; font-weight: 600; font-size: 12px; margin-right: 6px; border: 1px solid var(--border-color); }
-    .btn-view:hover { background: #374151; }
-    .btn-delete { background: var(--accent-red); padding: 6px 10px; font-size: 12px; }
+    /* Permisos */
+    .perms-stack { display: flex; flex-direction: column; gap: 4px; }
+    .perm-badge {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 11px;
+      padding: 3px 7px; border-radius: 4px; background: #19202b; color: var(--text-muted);
+      border: 1px solid #263040; width: fit-content;
+    }
+    .perm-badge.is-locked { background: #26181d; color: #fca5a5; border-color: rgba(229, 9, 20, 0.35); }
 
-    .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); font-size: 14px; }
+    /* Botones de Acción */
+    .actions-group { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .btn-action-view {
+      background: #1e2633; color: #fff; text-decoration: none; padding: 7px 11px;
+      border-radius: 6px; font-weight: 600; font-size: 12px; border: 1px solid var(--border-color);
+      display: inline-flex; align-items: center; gap: 5px; transition: 0.15s;
+    }
+    .btn-action-view:hover { background: #2a3446; border-color: #3e4d66; }
+    .btn-action-delete {
+      background: rgba(229, 9, 20, 0.15); color: #ff8088; border: 1px solid rgba(229, 9, 20, 0.4);
+      padding: 7px 11px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 5px; transition: 0.15s;
+    }
+    .btn-action-delete:hover { background: var(--accent-red); color: #fff; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-state-icon { font-size: 34px; margin-bottom: 10px; opacity: 0.7; }
+    .empty-state-title { font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+
+    /* --- MODAL DE CONFIRMACIÓN --- */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.78); display: none;
+      align-items: center; justify-content: center; z-index: 100; padding: 15px;
+    }
+    .modal-box {
+      background: #161c26; width: 100%; max-width: 420px; border-radius: 10px;
+      border: 1px solid var(--border-color); box-shadow: 0 20px 50px rgba(0,0,0,0.7); overflow: hidden;
+    }
+    .modal-header { padding: 16px 20px; font-size: 1.05rem; font-weight: 700; border-bottom: 1px solid var(--border-color); }
+    .modal-body { padding: 20px; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+    .modal-footer { padding: 12px 20px; background: #10151d; display: flex; justify-content: flex-end; gap: 8px; }
+    .btn-cancel { background: #263040; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .btn-confirm-danger { background: var(--accent-red); color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+    /* Toast flotante */
+    .toast {
+      position: fixed; bottom: 22px; right: 22px; background: #1c2430; color: #fff;
+      border: 1px solid var(--border-color); border-left: 4px solid var(--accent-red);
+      padding: 11px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6); z-index: 200; display: none;
+    }
+
+    /* --- DISEÑO RESPONSIVE (TARJETAS EN MÓVIL) --- */
+    @media (max-width: 860px) {
+      .topbar { padding: 12px 15px; }
+      .w2g-badge { display: none; }
+      .container { padding: 0 12px; margin-top: 15px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .stat-card { padding: 14px; }
+      .stat-info .num { font-size: 22px; }
+
+      .search-box input { font-size: 16px; }
+      .filter-tabs { width: 100%; overflow-x: auto; }
+      .filter-tab { flex: 1; text-align: center; }
+
+      /* Convertir tabla en tarjetas apiladas en móvil */
+      .table-wrap { background: transparent; border: none; box-shadow: none; }
+      table, thead, tbody, th, td, tr { display: block; }
+      thead tr { display: none; }
+      tbody tr {
+        background: var(--bg-panel); border: 1px solid var(--border-color);
+        border-radius: 10px; margin-bottom: 12px; padding: 14px;
+      }
+      td {
+        padding: 8px 0; border-bottom: 1px solid rgba(34, 43, 56, 0.6);
+        display: flex; flex-direction: column; gap: 6px;
+      }
+      td:last-child { border-bottom: none; padding-top: 12px; }
+      .video-media, .users-list-wrap { max-width: 100%; }
+      .actions-group { width: 100%; }
+      .btn-action-view, .btn-action-delete { flex: 1; justify-content: center; padding: 9px; }
+    }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <!-- PANTALLA DE ACCESO -->
-    <div id="login-screen">
-      <h2>🔒 Acceso Admin <span class="w2g-badge">Red Edition</span></h2>
-      <input type="password" id="admin-pass" placeholder="Introduce la contraseña..." autofocus>
-      <button onclick="attemptLogin()" style="width: 100%;">Entrar al panel</button>
-      <p id="error-msg" style="color: #ff4d4d; font-size: 12px; margin-top: 10px; display: none;">Contraseña incorrecta</p>
+  <!-- PANTALLA DE ACCESO -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-logo">W</div>
+      <h2>Panel de Administración</h2>
+      <p class="sub">Watch2Gether • Red Edition</p>
+      <div class="login-input-wrap">
+        <input type="password" id="admin-pass" placeholder="Introduce la contraseña de administrador..." autofocus>
+      </div>
+      <button class="btn-primary" onclick="attemptLogin()" style="width: 100%;">
+        🔒 Entrar al panel
+      </button>
+      <div id="error-msg" class="error-banner">Contraseña incorrecta. Inténtalo de nuevo.</div>
     </div>
+  </div>
 
-    <!-- PANEL PRINCIPAL -->
-    <div id="dashboard">
-      <header>
+  <!-- PANEL PRINCIPAL -->
+  <div id="dashboard">
+    <header class="topbar">
+      <div class="topbar-inner">
         <div class="brand-title">
-          <span>🛠️ Panel de Control de Salas</span>
-          <span class="w2g-badge">Watch2Gether</span>
+          <span class="w2g-icon-sm">W</span>
+          <span>Control de Salas</span>
+          <span class="w2g-badge">Admin</span>
         </div>
-        <button onclick="logoutAdmin()" style="background: #242c37; font-size: 12px;">Cerrar sesión</button>
-      </header>
 
-      <!-- Estadísticas -->
-      <div class="stats-bar">
+        <div class="topbar-actions">
+          <div class="conn-pill" id="conn-status">
+            <span class="pulse-dot"></span>
+            <span id="conn-text">En vivo</span>
+          </div>
+          <a href="/" target="_blank" class="btn-ghost">🏠 <span class="hide-sm">Ir al Inicio</span></a>
+          <button class="btn-ghost" onclick="logoutAdmin()">🚪 Salir</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Tarjetas de Estadísticas -->
+      <div class="stats-grid">
         <div class="stat-card">
-          <div class="label">Salas Creadas</div>
-          <div class="num" id="total-rooms">0</div>
+          <div class="stat-info">
+            <div class="label">Salas Activas</div>
+            <div class="num" id="total-rooms">0</div>
+          </div>
+          <div class="stat-icon">🚪</div>
         </div>
         <div class="stat-card">
-          <div class="label">Usuarios Conectados</div>
-          <div class="num" id="total-users">0</div>
+          <div class="stat-info">
+            <div class="label">Usuarios Conectados</div>
+            <div class="num" id="total-users">0</div>
+          </div>
+          <div class="stat-icon">👥</div>
         </div>
         <div class="stat-card">
-          <div class="label">Salas en Reproducción</div>
-          <div class="num" id="active-play-rooms">0</div>
+          <div class="stat-info">
+            <div class="label">Reproduciendo Ahora</div>
+            <div class="num" id="active-play-rooms">0</div>
+          </div>
+          <div class="stat-icon">▶️</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-info">
+            <div class="label">Vídeos en Cola</div>
+            <div class="num" id="total-queued-videos">0</div>
+          </div>
+          <div class="stat-icon">📑</div>
         </div>
       </div>
 
-      <!-- Tabla de Salas -->
-      <div class="table-responsive">
-        <table>
+      <!-- Barra de Búsqueda y Filtros -->
+      <div class="toolbar">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" id="search-input" placeholder="Buscar por ID de sala, usuario o título del vídeo..." oninput="renderRooms()">
+        </div>
+
+        <div class="toolbar-right">
+          <button class="btn-clean-empty" id="btn-clean-empty" onclick="confirmCleanEmptyRooms()">
+            🧹 Limpiar vacías (<span id="empty-rooms-count">0</span>)
+          </button>
+
+          <div class="filter-tabs">
+            <button class="filter-tab active" onclick="setFilter('all', this)">Todas</button>
+            <button class="filter-tab" onclick="setFilter('playing', this)">▶️ Reproduciendo</button>
+            <button class="filter-tab" onclick="setFilter('paused', this)">⏸️ En pausa</button>
+            <button class="filter-tab" onclick="setFilter('empty', this)">👻 Vacías</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla / Tarjetas de Salas -->
+      <div class="table-wrap">
+        <table id="rooms-table">
           <thead>
             <tr>
-              <th>ID de Sala</th>
+              <th>Sala</th>
               <th>Participantes</th>
-              <th>Vídeo en Reproducción</th>
-              <th>Permisos Activos</th>
+              <th>Vídeo Actual</th>
+              <th>Permisos</th>
               <th>Acciones</th>
             </tr>
           </thead>
-          <tbody id="rooms-table-body">
-            <!-- Filas dinámicas -->
-          </tbody>
+          <tbody id="rooms-table-body"></tbody>
         </table>
-        <div id="no-rooms" class="empty-state" style="display: none;">No hay salas abiertas en este momento.</div>
+
+        <div id="no-rooms" class="empty-state" style="display: none;">
+          <div class="empty-state-icon">📭</div>
+          <div class="empty-state-title" id="empty-title">No hay salas abiertas en este momento</div>
+          <div id="empty-sub">Cuando un usuario cree una sala, aparecerá aquí en tiempo real.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL DE CONFIRMACIÓN DE BORRADO -->
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal-box">
+      <div class="modal-header" id="confirm-title">🗑️ Eliminar sala</div>
+      <div class="modal-body" id="confirm-desc">
+        ¿Seguro que quieres cerrar esta sala? Se expulsará a todos los participantes.
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeConfirmModal()">Cancelar</button>
+        <button class="btn-confirm-danger" id="btn-confirm-action">Sí, eliminar</button>
       </div>
     </div>
   </div>
+
+  <!-- TOAST DE NOTIFICACIÓN -->
+  <div class="toast" id="toast"></div>
 
   <script>
     function escapeHTML(str) {
@@ -157,13 +450,33 @@
 
     const socket = io();
     let savedPassword = sessionStorage.getItem('w2g_admin_pass') || '';
+    let allRooms = [];
+    let currentFilter = 'all';
+    let toastTimer = null;
 
     if (savedPassword) {
       socket.emit('admin-auth', savedPassword);
     }
 
+    // Re-autenticar automáticamente si el servidor se reinicia o se reconecta el socket
+    socket.on('connect', () => {
+      const pill = document.getElementById('conn-status');
+      pill.classList.remove('offline');
+      document.getElementById('conn-text').innerText = 'En vivo';
+      if (savedPassword) {
+        socket.emit('admin-auth', savedPassword);
+      }
+    });
+
+    socket.on('disconnect', () => {
+      const pill = document.getElementById('conn-status');
+      pill.classList.add('offline');
+      document.getElementById('conn-text').innerText = 'Desconectado';
+    });
+
     function attemptLogin() {
       const pass = document.getElementById('admin-pass').value;
+      if (!pass) return;
       savedPassword = pass;
       socket.emit('admin-auth', pass);
     }
@@ -174,6 +487,7 @@
 
     socket.on('admin-auth-success', () => {
       sessionStorage.setItem('w2g_admin_pass', savedPassword);
+      document.getElementById('error-msg').style.display = 'none';
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
     });
@@ -184,85 +498,210 @@
     });
 
     socket.on('admin-rooms-data', (rooms) => {
-      updateDashboard(rooms);
+      allRooms = rooms || [];
+      updateStats();
+      renderRooms();
     });
 
-    function updateDashboard(rooms) {
-      document.getElementById('total-rooms').innerText = rooms.length;
-      const totalUsers = rooms.reduce((acc, r) => acc + r.usersCount, 0);
+    function updateStats() {
+      document.getElementById('total-rooms').innerText = allRooms.length;
+
+      const totalUsers = allRooms.reduce((acc, r) => acc + (r.usersCount || 0), 0);
       document.getElementById('total-users').innerText = totalUsers;
 
-      const playingRooms = rooms.filter(r => r.isPlaying).length;
+      const playingRooms = allRooms.filter(r => r.isPlaying).length;
       document.getElementById('active-play-rooms').innerText = playingRooms;
 
+      const totalQueued = allRooms.reduce((acc, r) => acc + (r.queueCount || 0), 0);
+      document.getElementById('total-queued-videos').innerText = totalQueued;
+
+      const emptyRooms = allRooms.filter(r => r.usersCount === 0);
+      const cleanBtn = document.getElementById('btn-clean-empty');
+      if (emptyRooms.length > 0) {
+        document.getElementById('empty-rooms-count').innerText = emptyRooms.length;
+        cleanBtn.style.display = 'inline-flex';
+      } else {
+        cleanBtn.style.display = 'none';
+      }
+    }
+
+    function setFilter(filter, btnEl) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+      renderRooms();
+    }
+
+    function renderRooms() {
+      const query = document.getElementById('search-input').value.trim().toLowerCase();
       const tbody = document.getElementById('rooms-table-body');
+      const table = document.getElementById('rooms-table');
+      const noRooms = document.getElementById('no-rooms');
+
+      const filtered = allRooms.filter((r) => {
+        if (currentFilter === 'playing' && !r.isPlaying) return false;
+        if (currentFilter === 'paused' && r.isPlaying) return false;
+        if (currentFilter === 'empty' && r.usersCount > 0) return false;
+
+        if (!query) return true;
+        const matchId = (r.id || '').toLowerCase().includes(query);
+        const matchVideo = (r.videoTitle || '').toLowerCase().includes(query);
+        const matchUser = (r.users || []).some(u => (u.name || '').toLowerCase().includes(query));
+        return matchId || matchVideo || matchUser;
+      });
+
       tbody.innerHTML = '';
 
-      if (rooms.length === 0) {
-        document.getElementById('no-rooms').style.display = 'block';
+      if (filtered.length === 0) {
+        table.style.display = 'none';
+        noRooms.style.display = 'block';
+        if (allRooms.length > 0) {
+          document.getElementById('empty-title').innerText = 'No hay salas que coincidan con tu filtro';
+          document.getElementById('empty-sub').innerText = 'Prueba con otro término de búsqueda o cambia la pestaña de filtro.';
+        } else {
+          document.getElementById('empty-title').innerText = 'No hay salas abiertas en este momento';
+          document.getElementById('empty-sub').innerText = 'Cuando un usuario cree una sala, aparecerá aquí en tiempo real.';
+        }
         return;
       }
-      document.getElementById('no-rooms').style.display = 'none';
 
-      rooms.forEach((r) => {
+      table.style.display = '';
+      noRooms.style.display = 'none';
+
+      filtered.forEach((r) => {
         const tr = document.createElement('tr');
         const userBadgeClass = r.usersCount > 0 ? 'badge-users' : 'badge-empty';
 
         let usersHtml = '';
         if (r.users && r.users.length > 0) {
-          usersHtml = r.users.map(u => 
+          usersHtml = r.users.map(u =>
             `<span class="user-pill ${u.isHost ? 'is-host' : ''}">${u.isHost ? '👑 ' : ''}${escapeHTML(u.name)}</span>`
           ).join('');
         } else {
-          usersHtml = '<span style="color: var(--text-muted); font-size: 11px;">Sin usuarios (pendiente de limpieza)</span>';
+          usersHtml = '<span style="color: var(--text-muted); font-size: 11px;">Sin usuarios (auto-limpieza activa)</span>';
         }
 
-        const permControl = r.permissions.controlPlayer === 'host' ? '🔒 Controles: Host' : '👥 Controles: Todos';
-        const permManage = r.permissions.manageVideos === 'host' ? '🔒 Vídeos: Host' : '👥 Vídeos: Todos';
-        const permChat = r.permissions.chat === 'host' ? '🔒 Chat: Host' : '👥 Chat: Todos';
+        const pControlHost = r.permissions?.controlPlayer === 'host';
+        const pManageHost = r.permissions?.manageVideos === 'host';
+        const pChatHost = r.permissions?.chat === 'host';
 
         const safeRoomId = escapeHTML(r.id);
         const safeVideoTitle = escapeHTML(r.videoTitle);
         const safeVideoId = escapeHTML(r.videoId);
+        const thumbUrl = `https://img.youtube.com/vi/${encodeURIComponent(r.videoId || '')}/mqdefault.jpg`;
 
         tr.innerHTML = `
           <td>
-            <span class="room-tag">${safeRoomId}</span>
+            <div class="room-id-wrap">
+              <span class="room-tag">${safeRoomId}</span>
+              <button class="btn-icon-copy" title="Copiar enlace de invitación">📋</button>
+            </div>
           </td>
           <td>
-            <div style="margin-bottom: 5px;">
+            <div>
               <span class="${userBadgeClass}">👤 ${r.usersCount} usuario(s)</span>
             </div>
-            <div>${usersHtml}</div>
+            <div class="users-list-wrap">${usersHtml}</div>
           </td>
-          <td class="video-cell">
-            <div class="video-title" title="${safeVideoTitle}">${safeVideoTitle}</div>
-            <div class="video-state">
-              ${r.isPlaying ? '▶️ Reproduciendo' : '⏸️ En pausa'} • 
-              <a href="https://youtube.com/watch?v=${safeVideoId}" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: none;">Ver en YT</a>
-              • 📑 ${r.queueCount} en cola
+          <td>
+            <div class="video-media">
+              <img class="video-thumb" src="${thumbUrl}" alt="">
+              <div class="video-meta">
+                <div class="video-title" title="${safeVideoTitle}">${safeVideoTitle}</div>
+                <div class="video-sub">
+                  <span class="state-badge ${r.isPlaying ? 'state-playing' : 'state-paused'}">
+                    ${r.isPlaying ? '▶ Reproduciendo' : '⏸ Pausa'}
+                  </span>
+                  <span>• 📑 ${r.queueCount} en cola</span>
+                  <span>• <a class="yt-link" href="https://youtube.com/watch?v=${safeVideoId}" target="_blank" rel="noopener noreferrer">YouTube ↗</a></span>
+                </div>
+              </div>
             </div>
           </td>
           <td>
-            <div><span class="perm-badge">${permControl}</span></div>
-            <div><span class="perm-badge">${permManage}</span></div>
-            <div><span class="perm-badge">${permChat}</span></div>
+            <div class="perms-stack">
+              <span class="perm-badge ${pControlHost ? 'is-locked' : ''}">${pControlHost ? '🔒 Controles: Host' : '👥 Controles: Todos'}</span>
+              <span class="perm-badge ${pManageHost ? 'is-locked' : ''}">${pManageHost ? '🔒 Vídeos: Host' : '👥 Vídeos: Todos'}</span>
+              <span class="perm-badge ${pChatHost ? 'is-locked' : ''}">${pChatHost ? '🔒 Chat: Host' : '👥 Chat: Todos'}</span>
+            </div>
           </td>
           <td>
-            <a href="/?r=${encodeURIComponent(r.id)}" target="_blank" class="btn-view">👁️ Entrar</a>
-            <button class="btn-delete">🗑️ Eliminar</button>
+            <div class="actions-group">
+              <a href="/?r=${encodeURIComponent(r.id)}" target="_blank" class="btn-action-view">👁️ Entrar</a>
+              <button class="btn-action-delete">🗑️ Eliminar</button>
+            </div>
           </td>
         `;
 
-        tr.querySelector('.btn-delete').addEventListener('click', () => deleteRoom(r.id));
+        tr.querySelector('.btn-icon-copy').addEventListener('click', () => {
+          const url = `${window.location.origin}/?r=${encodeURIComponent(r.id)}`;
+          navigator.clipboard.writeText(url);
+          showToast(`📋 Enlace de la sala "${r.id}" copiado`);
+        });
+
+        tr.querySelector('.btn-action-delete').addEventListener('click', () => {
+          openConfirmModal(
+            `🗑️ Eliminar sala "${r.id}"`,
+            `¿Seguro que quieres cerrar la sala "${r.id}"? Se desconectará inmediatamente a sus ${r.usersCount} participante(s).`,
+            () => {
+              socket.emit('admin-delete-room', { password: savedPassword, roomId: r.id });
+              showToast(`🗑️ Sala "${r.id}" eliminada`);
+            }
+          );
+        });
+
         tbody.appendChild(tr);
       });
     }
 
-    function deleteRoom(roomId) {
-      if (confirm(`¿Seguro que quieres eliminar la sala "${roomId}"? Se cerrará la sesión y se expulsará a todos los participantes.`)) {
-        socket.emit('admin-delete-room', { password: savedPassword, roomId: roomId });
-      }
+    function confirmCleanEmptyRooms() {
+      const emptyRooms = allRooms.filter(r => r.usersCount === 0);
+      if (emptyRooms.length === 0) return;
+
+      openConfirmModal(
+        '🧹 Limpiar salas vacías',
+        `Se eliminarán ${emptyRooms.length} sala(s) que actualmente no tienen ningún participante conectado.`,
+        () => {
+          emptyRooms.forEach((r) => {
+            socket.emit('admin-delete-room', { password: savedPassword, roomId: r.id });
+          });
+          showToast(`🧹 ${emptyRooms.length} sala(s) vacía(s) eliminada(s)`);
+        }
+      );
+    }
+
+    function openConfirmModal(title, desc, onConfirm) {
+      document.getElementById('confirm-title').innerText = title;
+      document.getElementById('confirm-desc').innerText = desc;
+      const modal = document.getElementById('confirm-modal');
+      const btn = document.getElementById('btn-confirm-action');
+
+      btn.onclick = () => {
+        onConfirm();
+        closeConfirmModal();
+      };
+
+      modal.style.display = 'flex';
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('confirm-modal').style.display = 'none';
+    }
+
+    document.getElementById('confirm-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'confirm-modal') closeConfirmModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeConfirmModal();
+    });
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.style.display = 'block';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3000);
     }
 
     function logoutAdmin() {
