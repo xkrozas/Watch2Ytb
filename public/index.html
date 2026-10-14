@@ -9,151 +9,212 @@
   <script src="https://www.youtube.com/iframe_api"></script>
   <style>
     :root {
-      --bg-dark: #0f1216;
-      --bg-panel: #161b22;
-      --bg-header: #12161c;
+      --bg-dark: #0b0e12;
+      --bg-panel: #131820;
+      --bg-panel-hover: #181f2a;
+      --bg-header: #0f1319;
       --accent-red: #e50914;
       --accent-red-hover: #b80710;
-      --accent-blue: #2574a9;
+      --accent-blue: #3b82f6;
+      --accent-green: #22c55e;
       --text-main: #f1f5f9;
-      --text-muted: #8c9ba5;
-      --border-color: #242c37;
+      --text-muted: #8b9bb0;
+      --border-color: #222b38;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     body { background-color: var(--bg-dark); color: var(--text-main); height: 100vh; height: 100dvh; overflow: hidden; }
 
-    /* Scrollbars oscuras personalizadas */
+    /* Scrollbars oscuras */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg-panel); }
     ::-webkit-scrollbar-thumb { background: #2e3846; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-    /* --- VISTA 1: HOME --- */
+    /* ==========================================================================
+       VISTA 1: HOME (PORTADA)
+       ========================================================================== */
     #home-view {
-      display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: var(--bg-dark);
+      display: flex; flex-direction: column; height: 100vh; height: 100dvh;
+      background: radial-gradient(circle at 50% 0%, rgba(229, 9, 20, 0.16), transparent 60%), var(--bg-dark);
+      overflow-y: auto;
     }
     .home-nav {
-      height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--border-color);
+      height: 64px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; border-bottom: 1px solid var(--border-color); background: rgba(15, 19, 25, 0.8);
+      backdrop-filter: blur(10px); flex-shrink: 0;
     }
-    .w2g-logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.2rem; color: #fff; text-decoration: none; }
+    .w2g-logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.25rem; color: #fff; text-decoration: none; }
     .w2g-logo-icon {
-      background: var(--accent-red); color: #fff; font-weight: 900; font-size: 1.1rem; padding: 2px 7px; border-radius: 4px;
+      background: var(--accent-red); color: #fff; font-weight: 900; font-size: 1.1rem;
+      padding: 3px 9px; border-radius: 6px; box-shadow: 0 4px 14px rgba(229, 9, 20, 0.4);
     }
-    .home-nav-links { display: flex; gap: 15px; font-size: 13px; color: var(--text-muted); }
-    .home-nav-links a { color: var(--text-muted); text-decoration: none; transition: 0.2s; }
-    .home-nav-links a:hover { color: #fff; }
+    .home-nav-links { display: flex; align-items: center; gap: 12px; }
+    .btn-nav-link {
+      background: #1a212d; color: var(--text-main); border: 1px solid var(--border-color);
+      padding: 7px 13px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+      text-decoration: none; transition: 0.2s;
+    }
+    .btn-nav-link:hover { background: #252f3f; border-color: #364459; }
 
     .home-hero {
-      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 30px 20px; max-width: 680px; margin: 0 auto;
+    }
+    .hero-pill {
+      background: rgba(229, 9, 20, 0.12); color: #ff8088; border: 1px solid rgba(229, 9, 20, 0.35);
+      font-size: 12px; font-weight: 700; padding: 5px 14px; border-radius: 20px; margin-bottom: 20px;
     }
     .hero-title {
-      font-size: clamp(2rem, 7vw, 3.5rem); font-weight: 900; letter-spacing: -1px; margin-bottom: 30px; display: flex; align-items: center; gap: 8px;
+      font-size: clamp(2.2rem, 7vw, 3.8rem); font-weight: 900; letter-spacing: -1.5px;
+      margin-bottom: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
     }
     .cursor-pipe { color: var(--accent-red); font-weight: 300; animation: blink 1s infinite; }
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-    .btn-create-room {
-      background: var(--accent-red); color: #fff; font-size: 1.1rem; font-weight: 700;
-      padding: 14px 45px; border-radius: 6px; border: none; cursor: pointer; transition: 0.2s;
-      box-shadow: 0 8px 25px rgba(229, 9, 20, 0.35);
+    .hero-desc {
+      color: var(--text-muted); font-size: 15px; line-height: 1.5; margin-bottom: 28px; max-width: 500px;
     }
-    .btn-create-room:hover { background: var(--accent-red-hover); transform: translateY(-1px); }
-    .hero-sub { margin-top: 15px; color: var(--text-muted); font-size: 13px; }
 
-    /* --- MODAL ENTRADA GUEST --- */
+    .btn-create-room {
+      background: var(--accent-red); color: #fff; font-size: 1.1rem; font-weight: 800;
+      padding: 15px 42px; border-radius: 8px; border: none; cursor: pointer; transition: 0.2s;
+      box-shadow: 0 10px 30px rgba(229, 9, 20, 0.4); display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-create-room:hover { background: var(--accent-red-hover); transform: translateY(-2px); }
+    .hero-sub { margin-top: 12px; color: var(--text-muted); font-size: 12px; }
+
+    .join-existing-box {
+      margin-top: 32px; width: 100%; max-width: 420px; background: var(--bg-panel);
+      border: 1px solid var(--border-color); border-radius: 10px; padding: 14px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+    }
+    .join-existing-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; display: block; }
+    .join-existing-row { display: flex; gap: 8px; }
+    .join-existing-row input {
+      flex: 1; background: #080a0e; border: 1px solid var(--border-color); border-radius: 6px;
+      padding: 10px 12px; color: #fff; font-size: 13px; outline: none;
+    }
+    .join-existing-row input:focus { border-color: var(--accent-red); }
+    .join-existing-row button {
+      background: #1f2735; color: #fff; border: 1px solid var(--border-color); border-radius: 6px;
+      padding: 0 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.2s;
+    }
+    .join-existing-row button:hover { background: #2b3648; }
+
+    .hero-features {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 28px;
+    }
+    .feature-chip {
+      background: rgba(19, 24, 32, 0.8); border: 1px solid var(--border-color);
+      padding: 6px 12px; border-radius: 20px; font-size: 12px; color: var(--text-muted);
+    }
+
+    /* ==========================================================================
+       MODAL ENTRADA INVITADO
+       ========================================================================== */
     .guest-modal-overlay {
-      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); z-index: 1000;
-      display: none; align-items: center; justify-content: center; padding: 20px;
+      position: fixed; inset: 0; background: rgba(6, 8, 11, 0.88); backdrop-filter: blur(6px);
+      z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;
     }
     .guest-card {
-      background: #181f2a; border: 1px solid var(--border-color); border-radius: 8px;
-      padding: 25px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+      background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px;
+      padding: 30px 26px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     }
-    .guest-card h2 { font-size: 1.3rem; color: #fff; margin-bottom: 10px; }
-    .guest-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+    .guest-card-icon {
+      width: 48px; height: 48px; background: rgba(229, 9, 20, 0.15); border: 1px solid rgba(229, 9, 20, 0.35);
+      border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 14px;
+    }
+    .guest-card h2 { font-size: 1.3rem; color: #fff; margin-bottom: 8px; font-weight: 800; }
+    .guest-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.4; }
     .guest-card input {
-      width: 100%; padding: 12px; background: #0b0e13; border: 1px solid var(--border-color);
-      border-radius: 4px; color: #fff; font-size: 15px; margin-bottom: 15px; outline: none; text-align: center;
+      width: 100%; padding: 13px; background: #080a0e; border: 1px solid var(--border-color);
+      border-radius: 8px; color: #fff; font-size: 15px; margin-bottom: 16px; outline: none; text-align: center; font-weight: 600;
     }
-    .guest-card input:focus { border-color: var(--accent-red); }
+    .guest-card input:focus { border-color: var(--accent-red); box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.15); }
     .guest-card button {
-      width: 100%; padding: 12px; background: var(--accent-red); border: none; border-radius: 4px;
-      color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s;
+      width: 100%; padding: 13px; background: var(--accent-red); border: none; border-radius: 8px;
+      color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s;
     }
     .guest-card button:hover { background: var(--accent-red-hover); }
 
-    /* --- VISTA 2: SALA PRINCIPAL --- */
+    /* ==========================================================================
+       VISTA 2: SALA PRINCIPAL
+       ========================================================================== */
     #room-view { display: none; flex-direction: column; height: 100vh; height: 100dvh; }
 
     /* Barra Superior */
     .room-header {
-      height: 52px; background: var(--bg-header); border-bottom: 1px solid var(--border-color);
-      display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 8px; z-index: 30; flex-shrink: 0;
+      height: 56px; background: var(--bg-header); border-bottom: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 14px; gap: 10px; z-index: 30; flex-shrink: 0;
     }
     .room-info {
-      display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted);
-      cursor: pointer; white-space: nowrap; flex-shrink: 0; padding: 5px 8px; border-radius: 4px; transition: 0.2s;
+      display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-main);
+      cursor: pointer; white-space: nowrap; flex-shrink: 0; padding: 6px 10px; border-radius: 6px;
+      background: #151b24; border: 1px solid var(--border-color); transition: 0.2s;
     }
-    .room-info:hover { background: #1c222b; color: #fff; }
+    .room-info:hover { border-color: #384659; background: #1c2430; }
+    .room-code-badge { font-family: monospace; font-weight: 700; color: #fff; }
 
     /* Barra de Búsqueda Superior */
-    .top-search-wrap { flex: 1; min-width: 0; max-width: 600px; position: relative; }
+    .top-search-wrap { flex: 1; min-width: 0; max-width: 580px; position: relative; }
     .top-search-bar {
-      display: flex; align-items: center; background: #0b0e13; border: 1px solid var(--border-color); border-radius: 4px; padding: 2px 6px; transition: 0.2s;
+      display: flex; align-items: center; background: #080a0e; border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 3px 8px; transition: 0.2s;
     }
-    .top-search-bar:focus-within { border-color: var(--accent-red); }
+    .top-search-bar:focus-within { border-color: var(--accent-red); box-shadow: 0 0 0 2px rgba(229, 9, 20, 0.15); }
     .top-search-bar input {
-      flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #fff; font-size: 13px; padding: 6px 4px;
+      flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #fff; font-size: 13px; padding: 6px 6px;
     }
-    .search-btn-icon { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; flex-shrink: 0; }
+    .search-btn-icon { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; flex-shrink: 0; font-size: 14px; }
     .search-btn-icon:hover { color: #fff; }
 
-    .header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; position: relative; }
+    .header-right { display: flex; align-items: center; gap: 7px; flex-shrink: 0; position: relative; }
 
-    /* Contador y Desplegable de Usuarios */
+    /* Contador y Popover de Usuarios */
     .user-counter {
-      font-size: 12px; color: var(--text-main); display: flex; align-items: center; gap: 4px;
-      background: #1a202c; border: 1px solid var(--border-color); padding: 5px 9px; border-radius: 4px;
+      font-size: 12px; color: var(--text-main); font-weight: 600; display: flex; align-items: center; gap: 5px;
+      background: #161d27; border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px;
       cursor: pointer; user-select: none; transition: 0.2s;
     }
-    .user-counter:hover { border-color: var(--text-muted); background: #232b3a; }
+    .user-counter:hover { border-color: #3a4759; background: #1e2736; }
 
     .users-popover {
-      position: absolute; top: calc(100% + 8px); right: 0; width: 230px; background: #181f2a;
-      border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 12px 30px rgba(0,0,0,0.75);
-      padding: 10px; display: none; flex-direction: column; gap: 6px; z-index: 100;
+      position: absolute; top: calc(100% + 8px); right: 0; width: 240px; background: var(--bg-panel);
+      border: 1px solid var(--border-color); border-radius: 10px; box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+      padding: 12px; display: none; flex-direction: column; gap: 8px; z-index: 100;
     }
     .users-popover-title {
       font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;
-      border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 2px;
+      border-bottom: 1px solid var(--border-color); padding-bottom: 6px;
       display: flex; justify-content: space-between; align-items: center;
     }
-    .users-popover-list { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+    .users-popover-list { display: flex; flex-direction: column; gap: 5px; max-height: 210px; overflow-y: auto; }
     .user-popover-item {
       display: flex; align-items: center; justify-content: space-between; font-size: 12px;
-      padding: 5px 8px; border-radius: 4px; background: #11151d; border: 1px solid transparent;
+      padding: 6px 9px; border-radius: 6px; background: #0c1015; border: 1px solid var(--border-color);
     }
-    .user-popover-item.is-host { border-color: rgba(229, 9, 20, 0.4); background: #231419; }
-    .user-popover-item.is-me { font-weight: 700; color: #fff; }
+    .user-popover-item.is-host { border-color: rgba(229, 9, 20, 0.45); background: #241318; color: #ff9ca2; }
+    .user-popover-item.is-me { font-weight: 700; }
     .edit-name-link {
-      font-size: 11px; color: var(--accent-red); cursor: pointer; text-align: center;
-      padding-top: 6px; border-top: 1px solid var(--border-color); font-weight: 600;
+      font-size: 12px; color: #ff8088; cursor: pointer; text-align: center;
+      padding-top: 8px; border-top: 1px solid var(--border-color); font-weight: 600;
     }
-    .edit-name-link:hover { text-decoration: underline; }
+    .edit-name-link:hover { color: #fff; }
 
     .btn-header-action {
-      background: #202733; color: #fff; border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 10px;
-      font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; transition: 0.2s;
+      background: #18202c; color: #fff; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 11px;
+      font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; transition: 0.2s;
     }
-    .btn-header-action:hover { background: #2a3342; }
+    .btn-header-action:hover { background: #232e3f; border-color: #36455c; }
     .btn-header-action.btn-invite-accent { background: var(--accent-red); border-color: var(--accent-red); font-weight: 700; }
     .btn-header-action.btn-invite-accent:hover { background: var(--accent-red-hover); }
 
     .mobile-user-tag {
-      display: none; background: #221417; color: #ff8088; font-size: 10px; font-weight: bold;
-      padding: 4px 7px; border-radius: 4px; border: 1px solid var(--accent-red); cursor: pointer;
-      max-width: 95px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: none; background: #261419; color: #ff9ca2; font-size: 11px; font-weight: 700;
+      padding: 5px 9px; border-radius: 6px; border: 1px solid rgba(229, 9, 20, 0.5); cursor: pointer;
+      max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
     /* Estructura Principal */
@@ -161,23 +222,27 @@
 
     /* Dock Izquierdo (PC) */
     .left-dock {
-      width: 58px; background: var(--bg-header); border-right: 1px solid var(--border-color);
-      display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 15px 0; flex-shrink: 0;
+      width: 60px; background: var(--bg-header); border-right: 1px solid var(--border-color);
+      display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 16px 0; flex-shrink: 0;
     }
-    .dock-top, .dock-bottom { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    .dock-top, .dock-bottom { display: flex; flex-direction: column; align-items: center; gap: 18px; }
     .dock-item {
       display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted);
-      font-size: 10px; cursor: pointer; text-decoration: none; position: relative; transition: 0.2s;
+      font-size: 10px; font-weight: 600; cursor: pointer; text-decoration: none; position: relative; transition: 0.2s;
     }
     .dock-item:hover { color: #fff; }
-    .dock-icon { font-size: 18px; }
+    .dock-icon {
+      width: 36px; height: 36px; border-radius: 8px; background: #151b24; border: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: center; font-size: 16px; transition: 0.2s;
+    }
+    .dock-item:hover .dock-icon { border-color: var(--accent-red); background: #1d2532; }
     .dock-avatar {
-      width: 36px; height: 36px; border-radius: 8px; background: #1c232e; display: flex;
-      align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border: 2px solid var(--accent-red);
+      width: 38px; height: 38px; border-radius: 9px; background: #241318; display: flex;
+      align-items: center; justify-content: center; font-size: 15px; font-weight: bold; border: 2px solid var(--accent-red);
       position: relative;
     }
     .host-crown { position: absolute; top: -10px; right: -6px; font-size: 12px; }
-    .dock-user-label { font-size: 9px; color: var(--accent-red); max-width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dock-user-label { font-size: 9px; color: #ff8088; font-weight: 700; max-width: 54px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* Escenario Central */
     .center-stage { flex: 1; display: flex; flex-direction: column; background: #000; position: relative; min-width: 0; }
@@ -186,93 +251,107 @@
 
     /* Barra Inferior de "Reproduciendo Ahora" */
     .now-playing-bar {
-      height: 40px; background: var(--bg-header); border-top: 1px solid var(--border-color);
-      display: flex; align-items: center; justify-content: space-between; padding: 0 12px; gap: 10px; flex-shrink: 0;
+      height: 44px; background: var(--bg-header); border-top: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 14px; gap: 10px; flex-shrink: 0;
     }
-    .now-playing-info { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+    .now-playing-info { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1; }
     .live-dot {
       width: 8px; height: 8px; border-radius: 50%; background: var(--accent-red); flex-shrink: 0;
       box-shadow: 0 0 8px var(--accent-red);
     }
     .now-playing-title {
-      font-size: 12px; font-weight: 600; color: var(--text-main); white-space: nowrap;
+      font-size: 12px; font-weight: 700; color: var(--text-main); white-space: nowrap;
       overflow: hidden; text-overflow: ellipsis;
     }
-    .btn-skip-next {
-      background: #202733; color: #fff; border: 1px solid var(--border-color); border-radius: 4px;
+    .now-playing-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .btn-stage-bar {
+      background: #18202c; color: var(--text-main); border: 1px solid var(--border-color); border-radius: 6px;
       padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap;
-      display: inline-flex; align-items: center; gap: 5px; transition: 0.2s; flex-shrink: 0;
+      display: inline-flex; align-items: center; gap: 5px; transition: 0.2s; text-decoration: none;
     }
-    .btn-skip-next:hover:not(:disabled) { background: var(--accent-red); border-color: var(--accent-red); }
-    .btn-skip-next:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-stage-bar:hover:not(:disabled) { background: #243042; border-color: #3a4961; color: #fff; }
+    .btn-stage-bar.accent:hover:not(:disabled) { background: var(--accent-red); border-color: var(--accent-red); }
+    .btn-stage-bar:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .unmute-banner {
       position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: var(--accent-red); color: #fff; font-weight: bold; font-size: 12px;
-      padding: 8px 18px; border-radius: 20px; cursor: pointer; z-index: 20;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.8); display: none; align-items: center; gap: 6px; white-space: nowrap;
+      background: var(--accent-red); color: #fff; font-weight: 700; font-size: 12px;
+      padding: 9px 18px; border-radius: 20px; cursor: pointer; z-index: 20;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.85); display: none; align-items: center; gap: 6px; white-space: nowrap;
     }
 
     .toast-alert {
       position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-      background: rgba(229, 9, 20, 0.95); color: #fff; font-size: 12px; font-weight: 600;
-      padding: 8px 16px; border-radius: 20px; z-index: 60; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-      pointer-events: none; white-space: nowrap;
+      background: rgba(19, 24, 32, 0.96); color: #fff; border: 1px solid var(--border-color);
+      border-left: 4px solid var(--accent-red); font-size: 12px; font-weight: 600;
+      padding: 9px 16px; border-radius: 8px; z-index: 70; display: none;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.7); pointer-events: none; white-space: nowrap;
     }
 
     /* Cajón Desplegable del Buscador */
     .search-drawer {
-      position: absolute; inset: 0; background: rgba(15, 18, 22, 0.98);
-      z-index: 50; display: none; flex-direction: column; padding: 15px; overflow: hidden;
+      position: absolute; inset: 0; background: rgba(11, 14, 18, 0.98); backdrop-filter: blur(8px);
+      z-index: 50; display: none; flex-direction: column; padding: 16px; overflow: hidden;
     }
-    .drawer-nav { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px; }
-    .drawer-title { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
+    .drawer-nav { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 12px; }
+    .drawer-title { font-size: 14px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .btn-close-drawer {
+      background: #1a222f; color: #fff; border: 1px solid var(--border-color); padding: 5px 12px;
+      border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .btn-close-drawer:hover { background: var(--accent-red); border-color: var(--accent-red); }
 
     .drawer-search-row { display: flex; gap: 8px; margin-bottom: 12px; }
     .drawer-search-row input {
-      flex: 1; padding: 11px 14px; background: #080a0d; border: 1.5px solid var(--border-color);
-      border-radius: 6px; color: #fff; font-size: 15px; outline: none;
+      flex: 1; padding: 11px 14px; background: #07090c; border: 1.5px solid var(--border-color);
+      border-radius: 8px; color: #fff; font-size: 15px; outline: none;
     }
     .drawer-search-row input:focus { border-color: var(--accent-red); }
     .drawer-search-row button {
-      background: var(--accent-red); color: #fff; border: none; padding: 0 18px; border-radius: 6px;
-      font-size: 13px; font-weight: bold; cursor: pointer; white-space: nowrap;
+      background: var(--accent-red); color: #fff; border: none; padding: 0 20px; border-radius: 8px;
+      font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; transition: 0.2s;
     }
+    .drawer-search-row button:hover { background: var(--accent-red-hover); }
 
-    .platform-chips { display: flex; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); overflow-x: auto; flex-shrink: 0; }
-    .chip { background: #1c222b; font-size: 11px; padding: 4px 10px; border-radius: 12px; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
-    .chip.active { background: var(--accent-red); color: #fff; }
-
-    .search-results-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
+    .search-results-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 6px 0; }
     .w2g-card {
-      display: flex; gap: 10px; background: #151a22; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); align-items: center; transition: 0.15s;
+      display: flex; gap: 12px; background: var(--bg-panel); padding: 9px; border-radius: 8px;
+      border: 1px solid var(--border-color); align-items: center; transition: 0.15s;
     }
-    .w2g-card:hover { border-color: #384556; background: #19202a; }
-    .w2g-card img { width: 95px; height: 55px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+    .w2g-card:hover { border-color: #364459; background: var(--bg-panel-hover); }
+    .w2g-thumb-wrap { position: relative; width: 110px; height: 62px; flex-shrink: 0; border-radius: 6px; overflow: hidden; background: #000; }
+    .w2g-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .w2g-duration {
+      position: absolute; bottom: 4px; right: 4px; background: rgba(0, 0, 0, 0.85); color: #fff;
+      font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
+    }
     .w2g-card-info { flex: 1; min-width: 0; }
-    .w2g-card-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .w2g-card-author { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-    .w2g-card-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+    .w2g-card-title { font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .w2g-card-author { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .w2g-card-actions { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
     .btn-action-w2g {
-      background: #202733; color: #fff; border: 1px solid var(--border-color); padding: 5px 8px;
-      font-size: 11px; font-weight: 600; border-radius: 4px; cursor: pointer; white-space: nowrap; transition: 0.15s;
+      background: #1d2532; color: #fff; border: 1px solid var(--border-color); padding: 6px 10px;
+      font-size: 11px; font-weight: 700; border-radius: 6px; cursor: pointer; white-space: nowrap; transition: 0.15s;
     }
-    .btn-action-w2g:hover { background: #2c3545; }
+    .btn-action-w2g:hover { background: #2a3546; }
     .btn-play-now { background: var(--accent-red); color: #fff; border: none; }
     .btn-play-now:hover { background: var(--accent-red-hover); }
 
     /* Barra Lateral Derecha */
     .right-sidebar {
-      width: 330px; background: var(--bg-panel); border-left: 1px solid var(--border-color);
-      display: flex; flex-direction: column; min-width: 0; flex-shrink: 0;
+      width: 340px; background: var(--bg-panel); border-left: 1px solid var(--border-color);
+      display: flex; flex-direction: column; min-width: 0; flex-shrink: 0; transition: width 0.2s;
     }
+    .right-sidebar.collapsed { display: none; }
+
     .side-tabs { display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-header); flex-shrink: 0; }
     .side-tab {
-      flex: 1; padding: 11px 0; font-size: 11px; font-weight: 600; color: var(--text-muted);
+      flex: 1; padding: 12px 0; font-size: 12px; font-weight: 700; color: var(--text-muted);
       border: none; background: transparent; cursor: pointer; text-align: center; border-bottom: 2px solid transparent;
-      white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 5px;
+      white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 5px; transition: 0.15s;
     }
-    .side-tab.active { color: var(--accent-red); border-bottom-color: var(--accent-red); }
+    .side-tab:hover:not(.active) { color: #fff; }
+    .side-tab.active { color: var(--accent-red); border-bottom-color: var(--accent-red); background: rgba(229, 9, 20, 0.04); }
 
     .unread-badge {
       background: var(--accent-red); color: #fff; font-size: 10px; font-weight: 800;
@@ -283,64 +362,90 @@
     .side-tab-content.active { display: flex; }
 
     /* Chat */
-    .chat-messages { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
-    .chat-msg { background: #101419; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border-color); word-break: break-word; }
-    .chat-msg.is-me { border-left: 3px solid var(--accent-red); background: #141920; }
-    .chat-user { font-weight: bold; color: var(--accent-red); margin-bottom: 3px; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+    .chat-welcome {
+      background: #0e131a; border: 1px dashed var(--border-color); color: var(--text-muted);
+      padding: 10px; border-radius: 8px; text-align: center; font-size: 11px;
+    }
+    .chat-msg { background: #0d1117; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border-color); word-break: break-word; }
+    .chat-msg.is-me { border-left: 3px solid var(--accent-red); background: #141a24; }
+    .chat-user { font-weight: 700; color: #ff8088; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .chat-text { color: var(--text-main); line-height: 1.4; }
+
+    /* Barra de Reacciones Rápidas */
+    .emoji-bar {
+      display: flex; align-items: center; justify-content: space-around; padding: 5px 8px;
+      background: #0e1218; border-top: 1px solid var(--border-color); flex-shrink: 0;
+    }
+    .emoji-btn {
+      background: transparent; border: none; font-size: 15px; cursor: pointer; padding: 3px 6px;
+      border-radius: 6px; transition: transform 0.15s, background 0.15s;
+    }
+    .emoji-btn:hover { background: #1c2430; transform: scale(1.2); }
+
     .chat-input-bar {
       display: flex; padding: 8px; background: var(--bg-header); border-top: 1px solid var(--border-color); gap: 6px; flex-shrink: 0;
     }
     .chat-input-bar input {
-      flex: 1; background: #0b0e13; border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 4px; color: #fff; font-size: 12px; outline: none;
+      flex: 1; background: #080a0e; border: 1px solid var(--border-color); padding: 9px 11px; border-radius: 6px; color: #fff; font-size: 12px; outline: none;
     }
     .chat-input-bar input:focus { border-color: var(--accent-red); }
-    .chat-send-btn { background: var(--accent-red); color: #fff; border: none; border-radius: 4px; padding: 0 14px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .chat-send-btn { background: var(--accent-red); color: #fff; border: none; border-radius: 6px; padding: 0 15px; cursor: pointer; font-weight: bold; transition: 0.2s; }
     .chat-send-btn:hover { background: var(--accent-red-hover); }
 
     /* Cola e Historial */
-    .queue-items { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+    .queue-items { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
     .queue-card {
-      display: flex; gap: 8px; background: #11151c; padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); align-items: center;
+      display: flex; gap: 9px; background: #0d1117; padding: 7px; border-radius: 7px;
+      border: 1px solid var(--border-color); align-items: center; transition: 0.15s;
     }
-    .queue-card img { width: 55px; height: 32px; object-fit: cover; border-radius: 2px; flex-shrink: 0; }
-    .queue-card-title { flex: 1; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .btn-remove-queue { background: transparent; border: none; color: #ff5252; cursor: pointer; padding: 4px 6px; border-radius: 4px; }
+    .queue-card:hover { border-color: #344154; background: #131922; }
+    .queue-index { font-size: 11px; font-weight: 800; color: var(--text-muted); width: 18px; text-align: center; flex-shrink: 0; }
+    .queue-card img { width: 64px; height: 36px; object-fit: cover; border-radius: 4px; flex-shrink: 0; background: #000; }
+    .queue-card-title { flex: 1; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn-queue-play {
+      background: #1c2430; border: 1px solid var(--border-color); color: #fff; font-size: 10px;
+      padding: 4px 7px; border-radius: 4px; cursor: pointer;
+    }
+    .btn-queue-play:hover { background: var(--accent-red); border-color: var(--accent-red); }
+    .btn-remove-queue { background: transparent; border: none; color: #ff6b6b; cursor: pointer; padding: 4px 6px; border-radius: 4px; font-weight: bold; }
     .btn-remove-queue:hover { background: rgba(255, 82, 82, 0.15); }
 
     /* Modales */
     .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); display: none;
+      position: fixed; inset: 0; background: rgba(6, 8, 11, 0.8); backdrop-filter: blur(4px); display: none;
       align-items: center; justify-content: center; z-index: 100; padding: 15px;
     }
     .modal-box {
-      background: #1c222c; width: 100%; max-width: 500px; border-radius: 8px;
-      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6); overflow: hidden; border: 1px solid #2e3846;
+      background: var(--bg-panel); width: 100%; max-width: 480px; border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75); overflow: hidden; border: 1px solid var(--border-color);
     }
-    .modal-box-header { padding: 16px 20px; font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid #2e3846; display: flex; align-items: center; justify-content: space-between; }
+    .modal-box-header { padding: 16px 20px; font-size: 1.05rem; font-weight: 800; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; }
     .modal-box-body { padding: 20px; font-size: 13px; }
-    .modal-box-footer { padding: 12px 20px; background: #161b22; display: flex; justify-content: flex-end; gap: 8px; }
+    .modal-box-footer { padding: 12px 20px; background: #0d1117; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 8px; }
 
-    .btn-modal-close { background: #333d4b; color: #fff; border: none; padding: 7px 16px; font-size: 12px; border-radius: 4px; cursor: pointer; }
-    .btn-modal-save { background: var(--accent-red); color: #fff; border: none; padding: 7px 18px; font-size: 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+    .btn-modal-close { background: #232c3b; color: #fff; border: none; padding: 8px 16px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; }
+    .btn-modal-save { background: var(--accent-red); color: #fff; border: none; padding: 8px 18px; font-size: 12px; font-weight: 700; border-radius: 6px; cursor: pointer; }
 
-    .perm-group { margin-bottom: 15px; background: #13171f; padding: 12px; border-radius: 6px; border: 1px solid #252e3b; }
-    .perm-group label { display: block; font-weight: 600; margin-bottom: 6px; }
+    .perm-group { margin-bottom: 14px; background: #0c1015; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); }
+    .perm-group label { display: block; font-weight: 700; margin-bottom: 6px; font-size: 12px; color: var(--text-main); }
     .perm-group select, .modal-input {
-      width: 100%; padding: 9px 10px; background: #0f1218; border: 1px solid #2e3846; color: #fff; border-radius: 4px; outline: none; font-size: 13px;
+      width: 100%; padding: 10px 12px; background: #07090c; border: 1px solid var(--border-color); color: #fff; border-radius: 6px; outline: none; font-size: 13px;
     }
     .modal-input:focus { border-color: var(--accent-red); }
     .host-badge-info {
-      background: #25171a; border: 1px solid var(--accent-red); padding: 10px; border-radius: 6px; margin-bottom: 15px; color: #ffb8be; font-size: 12px;
+      background: #241318; border: 1px solid rgba(229, 9, 20, 0.45); padding: 11px; border-radius: 8px; margin-bottom: 15px; color: #ffb8be; font-size: 12px;
     }
 
     /* ==========================================================================
-       OPTIMIZACIÓN MÓVIL ESPECÍFICA (PANTALLAS <= 768px)
+       OPTIMIZACIÓN MÓVIL ESPECÍFICA - OPCIÓN B (2 FILAS EN CABECERA <= 768px)
        ========================================================================== */
-@media (max-width: 768px) {
+    @media (max-width: 768px) {
       .top-search-bar input,
       .drawer-search-row input,
       .chat-input-bar input,
-      .modal-input {
+      .modal-input,
+      .join-existing-row input {
         font-size: 16px !important;
       }
 
@@ -351,16 +456,17 @@
         padding: 8px;
         gap: 8px;
       }
-      .room-info span,
+      .room-info .room-label-text,
       .left-dock,
       #btn-clear-search,
-      .hide-mobile-text {
+      .hide-mobile-text,
+      #btn-theater-mode {
         display: none !important;
       }
 
       .mobile-user-tag {
         display: block;
-        max-width: 140px; /* Más espacio para nombres largos */
+        max-width: 140px;
       }
 
       .top-search-wrap {
@@ -369,13 +475,13 @@
         max-width: 100%;
       }
 
-      .btn-header-action { padding: 5px 8px; }
+      .btn-header-action { padding: 6px 9px; }
 
       .room-main { flex-direction: column; }
       .center-stage { width: 100%; height: auto; flex: none; }
       .video-container { width: 100%; height: auto; aspect-ratio: 16 / 9; flex: none; }
-      .now-playing-bar { height: 36px; padding: 0 10px; }
-      .right-sidebar { width: 100%; flex: 1; border-left: none; border-top: 1px solid var(--border-color); min-height: 0; }
+      .now-playing-bar { height: 38px; padding: 0 10px; }
+      .right-sidebar { width: 100% !important; flex: 1; border-left: none; border-top: 1px solid var(--border-color); min-height: 0; display: flex !important; }
 
       .search-drawer {
         position: fixed;
@@ -391,8 +497,9 @@
   <!-- MODAL ENTRADA GUEST -->
   <div class="guest-modal-overlay" id="guest-modal">
     <div class="guest-card">
-      <h2>👋 ¡Te han invitado a ver juntos!</h2>
-      <p>Elige tu nombre para entrar a la sala con tus amigos:</p>
+      <div class="guest-card-icon">🍿</div>
+      <h2>¡Te han invitado a ver juntos!</h2>
+      <p>Elige el nombre con el que aparecerás en la sala y en el chat:</p>
       <input type="text" id="guest-name-input" placeholder="Tu nombre..." maxlength="20">
       <button onclick="confirmGuestEntry()">▶ Entrar a la Sala</button>
     </div>
@@ -405,30 +512,50 @@
         <span class="w2g-logo-icon">W</span> Watch2Gether
       </a>
       <div class="home-nav-links">
-        <a href="/">Inicio</a>
-        <a href="#help" onclick="alert('Watch2Gether Clone: Crea tu sala y comparte el enlace con tus amigos para ver YouTube sincronizado y sin anuncios usando uBlock Origin o Brave.')">Ayuda</a>
+        <button class="btn-nav-link" onclick="openHelpModal()">❓ Ayuda</button>
       </div>
     </nav>
     <main class="home-hero">
+      <div class="hero-pill">✨ WatchParty en Tiempo Real</div>
       <div class="hero-title">
         <span>spend</span> <span>time</span> <span class="cursor-pipe">|</span> <span>together</span>
       </div>
-      <button class="btn-create-room" onclick="createNewRoom()">Crear tu Sala</button>
-      <div class="hero-sub">(No se requiere cuenta de usuario)</div>
+      <p class="hero-desc">
+        Crea una sala privada en un clic, comparte el enlace con tus amigos y disfrutad de vídeos de YouTube sincronizados al segundo.
+      </p>
+      <button class="btn-create-room" onclick="createNewRoom()">🚀 Crear tu Sala Gratis</button>
+      <div class="hero-sub">Sin registro obligatorio • Permisos de anfitrión incluidos</div>
+
+      <div class="join-existing-box">
+        <span class="join-existing-label">¿Ya tienes el código o enlace de una sala?</span>
+        <div class="join-existing-row">
+          <input type="text" id="join-room-input" placeholder="Ej: a1b2c3d4 o pega el enlace...">
+          <button onclick="joinExistingRoom()">Entrar ➔</button>
+        </div>
+      </div>
+
+      <div class="hero-features">
+        <span class="feature-chip">⚡ Sincronización automática</span>
+        <span class="feature-chip">👑 Control de permisos</span>
+        <span class="feature-chip">📑 Lista de reproducción</span>
+        <span class="feature-chip">📱 Diseño adaptable</span>
+      </div>
     </main>
   </div>
 
   <!-- VISTA 2: SALA -->
   <div id="room-view">
     <header class="room-header">
-      <div class="room-info" onclick="openInviteModal()" title="Copiar enlace de la sala">
-        <span>Temporary Room</span> 📋
+      <div class="room-info" onclick="openInviteModal()" title="Copiar enlace de invitación">
+        <span>📋</span>
+        <span class="room-label-text">Sala:</span>
+        <span class="room-code-badge" id="header-room-code">...</span>
       </div>
 
       <!-- Barra de Búsqueda Superior -->
       <div class="top-search-wrap">
         <div class="top-search-bar">
-          <input type="text" id="top-search-input" placeholder="Buscar o pegar enlace..." onfocus="openSearchDrawer(true)">
+          <input type="text" id="top-search-input" placeholder="Buscar en YouTube o pegar enlace..." onfocus="openSearchDrawer(true)">
           <button class="search-btn-icon" id="btn-clear-search" onclick="closeSearchDrawer()">✕</button>
           <button class="search-btn-icon" onclick="openSearchDrawer(true)">🔍</button>
         </div>
@@ -451,10 +578,10 @@
           <div class="edit-name-link" onclick="openChangeNameModal()">✏️ Cambiar mi nombre</div>
         </div>
 
-        <button class="btn-header-action" onclick="openPermissionsModal()" title="Permisos">
+        <button class="btn-header-action" onclick="openPermissionsModal()" title="Permisos de la sala">
           <span>🔒</span><span class="hide-mobile-text"> Permisos</span>
         </button>
-        <button class="btn-header-action btn-invite-accent" onclick="openInviteModal()" title="Invitar">
+        <button class="btn-header-action btn-invite-accent" onclick="openInviteModal()" title="Invitar amigos">
           <span>+</span><span class="hide-mobile-text"> Invitar</span>
         </button>
       </div>
@@ -465,15 +592,19 @@
       <aside class="left-dock">
         <div class="dock-top">
           <div class="dock-item" onclick="openInviteModal()">
-            <span class="dock-icon">⚙️</span>
+            <div class="dock-icon">🔗</div>
             <span>Invitar</span>
           </div>
           <div class="dock-item" onclick="openPermissionsModal()">
-            <span class="dock-icon">🔒</span>
+            <div class="dock-icon">🔒</div>
             <span>Permisos</span>
           </div>
-          <div class="dock-item" onclick="showToastAlert('💡 Usa el buscador superior para reproducir o añadir vídeos a la cola.')">
-            <span class="dock-icon">❓</span>
+          <div class="dock-item" onclick="toggleTheaterMode()">
+            <div class="dock-icon">🖥️</div>
+            <span>Cine</span>
+          </div>
+          <div class="dock-item" onclick="openHelpModal()">
+            <div class="dock-icon">❓</div>
             <span>Ayuda</span>
           </div>
         </div>
@@ -505,53 +636,65 @@
             <span class="live-dot"></span>
             <span class="now-playing-title" id="now-playing-title">Cargando sala...</span>
           </div>
-          <button class="btn-skip-next" id="btn-skip-next" onclick="skipToNextVideo()" disabled title="No hay vídeos en la cola">
-            ⏭️ <span class="hide-mobile-text">Siguiente</span>
-          </button>
+          <div class="now-playing-actions">
+            <a id="yt-external-link" href="https://youtube.com" target="_blank" rel="noopener noreferrer" class="btn-stage-bar" title="Abrir este vídeo en YouTube">
+              ↗️ <span class="hide-mobile-text">YouTube</span>
+            </a>
+            <button class="btn-stage-bar accent" id="btn-skip-next" onclick="skipToNextVideo()" disabled title="No hay vídeos en la cola">
+              ⏭️ <span class="hide-mobile-text">Siguiente</span>
+            </button>
+            <button class="btn-stage-bar" id="btn-theater-mode" onclick="toggleTheaterMode()" title="Alternar Modo Cine">
+              ↔️
+            </button>
+          </div>
         </div>
 
         <!-- Cajón Desplegable del Buscador -->
         <div class="search-drawer" id="search-drawer">
           <div class="drawer-nav">
-            <span class="drawer-title">🔍 Buscar o pegar vídeo</span>
-            <button class="search-btn-icon" onclick="closeSearchDrawer()" style="font-size: 15px; font-weight: bold; color: #fff;">✕ Cerrar</button>
+            <span class="drawer-title">🔍 Buscador de YouTube</span>
+            <button class="btn-close-drawer" onclick="closeSearchDrawer()">✕ Cerrar</button>
           </div>
 
           <div class="drawer-search-row">
-            <input type="text" id="drawer-search-input" placeholder="Pega el enlace de YouTube o escribe para buscar...">
+            <input type="text" id="drawer-search-input" placeholder="Pega el enlace de YouTube o escribe el título del vídeo...">
             <button onclick="triggerDrawerSearch()">Buscar</button>
-          </div>
-
-          <div class="platform-chips">
-            <span class="chip active">YouTube</span>
           </div>
 
           <div class="search-results-list" id="search-results-list">
             <div style="text-align: center; color: var(--text-muted); margin-top: 40px; font-size: 13px;">
-              Escribe algo o pega un enlace de YouTube arriba...
+              Escribe el nombre de un vídeo o pega un enlace de YouTube arriba...
             </div>
           </div>
         </div>
       </section>
 
       <!-- Barra Lateral / Inferior -->
-      <aside class="right-sidebar">
+      <aside class="right-sidebar" id="right-sidebar">
         <div class="side-tabs">
           <button class="side-tab active" onclick="switchSideTab('chat')">
-            <span>Chat</span>
+            <span>💬 Chat</span>
             <span id="chat-unread-badge" class="unread-badge" style="display: none;">0</span>
           </button>
           <button class="side-tab" onclick="switchSideTab('playlist')">
-            <span>Listas (<span id="queue-counter">0</span>)</span>
+            <span>📑 Cola (<span id="queue-counter">0</span>)</span>
           </button>
           <button class="side-tab" onclick="switchSideTab('history')">
-            <span>Historial</span>
+            <span>🕒 Historial</span>
           </button>
         </div>
 
         <div id="tab-chat" class="side-tab-content active">
           <div class="chat-messages" id="chat-messages">
-            <div class="chat-msg" style="color: var(--text-muted); text-align: center;">¡Bienvenidos a la sala!</div>
+            <div class="chat-welcome">👋 ¡Bienvenidos a la sala! Usa el buscador superior para poner vídeos.</div>
+          </div>
+          <div class="emoji-bar">
+            <button class="emoji-btn" onclick="sendQuickReaction('😂')" title="Enviar 😂">😂</button>
+            <button class="emoji-btn" onclick="sendQuickReaction('🔥')" title="Enviar 🔥">🔥</button>
+            <button class="emoji-btn" onclick="sendQuickReaction('❤️')" title="Enviar ❤️">❤️</button>
+            <button class="emoji-btn" onclick="sendQuickReaction('👏')" title="Enviar 👏">👏</button>
+            <button class="emoji-btn" onclick="sendQuickReaction('😮')" title="Enviar 😮">😮</button>
+            <button class="emoji-btn" onclick="sendQuickReaction('👍')" title="Enviar 👍">👍</button>
           </div>
           <div class="chat-input-bar">
             <input type="text" id="chat-input" placeholder="Escribe un mensaje...">
@@ -561,7 +704,7 @@
 
         <div id="tab-playlist" class="side-tab-content">
           <div class="queue-items" id="queue-items">
-            <div style="text-align: center; color: var(--text-muted); margin-top: 30px; font-size: 12px;">La lista está vacía. Añade vídeos desde el buscador.</div>
+            <div style="text-align: center; color: var(--text-muted); margin-top: 30px; font-size: 12px;">La cola está vacía. Añade vídeos desde el buscador.</div>
           </div>
         </div>
 
@@ -578,17 +721,17 @@
   <div class="modal-overlay" id="invite-modal">
     <div class="modal-box">
       <div class="modal-box-header">
-        <span>¡Invita a tus amigos a ver contigo!</span>
+        <span>🔗 ¡Invita a tus amigos a la sala!</span>
       </div>
       <div class="modal-box-body">
-        <label style="font-size: 13px; font-weight: 600;">Envíales el enlace de abajo:</label>
-        <div style="display: flex; margin-top: 10px;">
-          <input type="text" id="invite-url-input" readonly style="flex: 1; padding: 10px; background: #fff; color: #000; border: none; font-size: 13px; border-radius: 4px 0 0 4px; outline: none;">
-          <button onclick="copyInviteUrl()" style="background: var(--accent-blue); color: #fff; border: none; padding: 0 18px; font-size: 13px; font-weight: bold; border-radius: 0 4px 4px 0; cursor: pointer;">Copiar</button>
+        <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Enlace directo a esta sala:</label>
+        <div style="display: flex; margin-top: 8px; gap: 8px;">
+          <input type="text" id="invite-url-input" class="modal-input" readonly>
+          <button onclick="copyInviteUrl()" class="btn-modal-save" style="white-space: nowrap;">📋 Copiar</button>
         </div>
-        <div style="margin-top: 15px; background: #13171f; padding: 10px; border-radius: 6px; font-size: 11px; color: var(--text-muted); display: flex; gap: 8px; align-items: center;">
+        <div style="margin-top: 15px; background: #0c1015; border: 1px solid var(--border-color); padding: 11px; border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; gap: 8px; align-items: center;">
           <span>👥</span>
-          <span>Watch2Gether sincroniza los vídeos en tiempo real. ¡Pásales el enlace para empezar!</span>
+          <span>Cualquier persona con este enlace podrá entrar y ver el vídeo sincronizado contigo en tiempo real.</span>
         </div>
       </div>
       <div class="modal-box-footer">
@@ -611,24 +754,24 @@
         <div class="perm-group">
           <label>Control de reproducción (Play, Pausa, Adelantar):</label>
           <select id="perm-control-player">
-            <option value="all">Todos los usuarios pueden controlar el reproductor</option>
-            <option value="host">Solo el Anfitrión (👑) puede controlar</option>
+            <option value="all">👥 Todos los participantes pueden controlar el reproductor</option>
+            <option value="host">👑 Solo el Anfitrión puede controlar</option>
           </select>
         </div>
 
         <div class="perm-group">
           <label>Gestión de vídeos (Cambiar y añadir a la cola):</label>
           <select id="perm-manage-videos">
-            <option value="all">Todos pueden buscar y poner vídeos</option>
-            <option value="host">Solo el Anfitrión (👑) puede poner vídeos</option>
+            <option value="all">👥 Todos pueden buscar y poner vídeos</option>
+            <option value="host">👑 Solo el Anfitrión puede poner vídeos</option>
           </select>
         </div>
 
         <div class="perm-group">
           <label>Chat de la sala:</label>
           <select id="perm-chat">
-            <option value="all">Todos pueden escribir en el chat</option>
-            <option value="host">Solo el Anfitrión (👑) puede escribir</option>
+            <option value="all">👥 Todos pueden escribir en el chat</option>
+            <option value="host">👑 Solo el Anfitrión puede escribir</option>
           </select>
         </div>
       </div>
@@ -646,12 +789,30 @@
         <span>✏️ Cambiar tu nombre</span>
       </div>
       <div class="modal-box-body">
-        <label style="display: block; font-weight: 600; margin-bottom: 8px;">Nuevo nombre de usuario:</label>
+        <label style="display: block; font-weight: 700; margin-bottom: 8px; font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Nuevo nombre de usuario:</label>
         <input type="text" id="change-name-input" class="modal-input" maxlength="20" placeholder="Escribe tu nombre...">
       </div>
       <div class="modal-box-footer">
         <button class="btn-modal-close" onclick="closeChangeNameModal()">Cancelar</button>
         <button class="btn-modal-save" onclick="saveNewName()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE AYUDA -->
+  <div class="modal-overlay" id="help-modal">
+    <div class="modal-box">
+      <div class="modal-box-header">
+        <span>❓ Cómo funciona Watch2Gether</span>
+      </div>
+      <div class="modal-box-body" style="display: flex; flex-direction: column; gap: 12px; color: var(--text-muted); line-height: 1.5;">
+        <div><b style="color: #fff;">1. Busca o pega enlaces:</b> Usa la barra superior para buscar vídeos de YouTube o pegar directamente un enlace.</div>
+        <div><b style="color: #fff;">2. Sincronización automática:</b> Cuando alguien pulsa Play, Pausa o adelanta el vídeo, se actualiza al instante para toda la sala.</div>
+        <div><b style="color: #fff;">3. Permisos de Anfitrión (👑):</b> El creador de la sala puede restringir desde el botón <b>Permisos</b> quién puede tocar el reproductor, añadir vídeos o usar el chat.</div>
+        <div><b style="color: #fff;">4. Sin anuncios:</b> Para una experiencia sin cortes publicitarios, recomendamos usar el navegador Brave o la extensión uBlock Origin.</div>
+      </div>
+      <div class="modal-box-footer">
+        <button class="btn-modal-save" onclick="closeHelpModal()">Entendido</button>
       </div>
     </div>
   </div>
@@ -690,6 +851,7 @@
     if (roomId) {
       document.getElementById('home-view').style.display = 'none';
       document.getElementById('room-view').style.display = 'flex';
+      document.getElementById('header-room-code').innerText = `#${roomId}`;
 
       const guestModal = document.getElementById('guest-modal');
       const nameInput = document.getElementById('guest-name-input');
@@ -701,6 +863,9 @@
     } else {
       document.getElementById('home-view').style.display = 'flex';
       document.getElementById('room-view').style.display = 'none';
+      document.getElementById('join-room-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') joinExistingRoom();
+      });
     }
 
     // Cerrar modales al hacer clic fuera o pulsar Escape
@@ -715,6 +880,7 @@
         closeInviteModal();
         closePermissionsModal();
         closeChangeNameModal();
+        closeHelpModal();
         closeSearchDrawer();
         document.getElementById('users-popover').style.display = 'none';
       }
@@ -739,6 +905,20 @@
       hasUserInteracted = true;
       const newRoom = Math.random().toString(36).substring(2, 10);
       window.location.search = `?r=${newRoom}`;
+    }
+
+    function joinExistingRoom() {
+      const val = document.getElementById('join-room-input').value.trim();
+      if (!val) return;
+      const match = val.match(/[?&]r=([^&]+)/);
+      const code = match ? match[1] : val.replace(/^#/, '');
+      if (code) {
+        window.location.search = `?r=${encodeURIComponent(code)}`;
+      }
+    }
+
+    function toggleTheaterMode() {
+      document.getElementById('right-sidebar').classList.toggle('collapsed');
     }
 
     socket.on('connect', () => {
@@ -801,6 +981,8 @@
     }
 
     function safeLoad(videoId, start = 0, play = true) {
+      document.getElementById('yt-external-link').href = `https://youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+
       if (isPlayerReady && player && typeof player.loadVideoById === 'function') {
         setRemoteCooldown(2000);
         player.loadVideoById({ videoId, startSeconds: Math.floor(start) });
@@ -864,6 +1046,7 @@
       document.getElementById('dock-username').innerText = myUsername;
       document.getElementById('mobile-user-tag').innerText = (isHost ? '👑 ' : '') + myUsername;
       document.getElementById('now-playing-title').innerText = data.videoTitle || 'Vídeo de YouTube';
+      document.getElementById('yt-external-link').href = `https://youtube.com/watch?v=${encodeURIComponent(data.videoId)}`;
 
       updateHostVisuals();
       applyPermissionsToUI();
@@ -1067,7 +1250,7 @@
         return;
       }
       searchDrawer.style.display = 'flex';
-      document.getElementById('search-results-list').innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 40px;">Buscando vídeos...</div>';
+      document.getElementById('search-results-list').innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 40px;">⏳ Buscando vídeos en YouTube...</div>';
       socket.emit('search-query', q.trim());
     }
 
@@ -1084,18 +1267,26 @@
         const card = document.createElement('div');
         card.className = 'w2g-card';
         card.innerHTML = `
-          <img src="${escapeHTML(v.thumbnail)}" alt="">
+          <div class="w2g-thumb-wrap">
+            <img src="${escapeHTML(v.thumbnail)}" alt="">
+            ${v.duration ? `<span class="w2g-duration">${escapeHTML(v.duration)}</span>` : ''}
+          </div>
           <div class="w2g-card-info">
             <div class="w2g-card-title" title="${escapeHTML(v.title)}">${escapeHTML(v.title)}</div>
-            <div class="w2g-card-author">${escapeHTML(v.author)} • ${escapeHTML(v.duration)}</div>
+            <div class="w2g-card-author">${escapeHTML(v.author || 'YouTube')}</div>
           </div>
           <div class="w2g-card-actions">
-            <button class="btn-action-w2g btn-play-now">▶ Ver</button>
-            <button class="btn-action-w2g btn-add-list">+ Lista</button>
+            <button class="btn-action-w2g btn-play-now">▶ Ver ahora</button>
+            <button class="btn-action-w2g btn-add-list">+ A la cola</button>
           </div>
         `;
         card.querySelector('.btn-play-now').addEventListener('click', () => playNow(v));
-        card.querySelector('.btn-add-list').addEventListener('click', () => addToPlaylist(v));
+        const addBtn = card.querySelector('.btn-add-list');
+        addBtn.addEventListener('click', () => {
+          addToPlaylist(v);
+          addBtn.innerText = '✓ Añadido';
+          setTimeout(() => { addBtn.innerText = '+ A la cola'; }, 1500);
+        });
         list.appendChild(card);
       });
     });
@@ -1107,7 +1298,7 @@
 
     function addToPlaylist(v) {
       socket.emit('add-to-playlist', v);
-      showToastAlert('✅ Vídeo añadido a la lista');
+      showToastAlert('✅ Vídeo añadido a la cola');
     }
 
     // Listas y Cola
@@ -1122,16 +1313,18 @@
       const c = document.getElementById('queue-items');
       c.innerHTML = '';
       if (list.length === 0) {
-        c.innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 30px; font-size: 12px;">La lista está vacía.</div>';
+        c.innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 30px; font-size: 12px;">La cola está vacía. Añade vídeos desde el buscador.</div>';
         return;
       }
       list.forEach((v, idx) => {
         const item = document.createElement('div');
         item.className = 'queue-card';
+        const thumb = v.thumbnail || `https://img.youtube.com/vi/${encodeURIComponent(v.videoId || '')}/mqdefault.jpg`;
         item.innerHTML = `
-          <img src="${escapeHTML(v.thumbnail)}" alt="">
+          <span class="queue-index">#${idx + 1}</span>
+          <img src="${escapeHTML(thumb)}" alt="">
           <div class="queue-card-title" title="${escapeHTML(v.title)}">${escapeHTML(v.title)}</div>
-          <button class="btn-remove-queue" title="Quitar de la lista">✕</button>
+          <button class="btn-remove-queue" title="Quitar de la cola">✕</button>
         `;
         item.querySelector('.btn-remove-queue').addEventListener('click', () => {
           socket.emit('remove-from-playlist', idx);
@@ -1150,25 +1343,30 @@
       list.forEach((v) => {
         const item = document.createElement('div');
         item.className = 'queue-card';
+        const thumb = `https://img.youtube.com/vi/${encodeURIComponent(v.videoId || '')}/mqdefault.jpg`;
         item.innerHTML = `
-          <div class="queue-card-title" style="cursor: pointer;" title="${escapeHTML(v.title)}">
-            ▶ ${escapeHTML(v.title)}
-          </div>
+          <img src="${thumb}" alt="">
+          <div class="queue-card-title" title="${escapeHTML(v.title)}">${escapeHTML(v.title)}</div>
+          <button class="btn-queue-play" title="Volver a reproducir">▶ Poner</button>
         `;
-        item.querySelector('.queue-card-title').addEventListener('click', () => {
+        item.querySelector('.btn-queue-play').addEventListener('click', () => {
           socket.emit('change-video', { videoId: v.videoId, title: v.title });
         });
         c.appendChild(item);
       });
     }
 
-    // Chat
+    // Chat y Reacciones
     function sendChatMessage() {
       const inp = document.getElementById('chat-input');
       const val = inp.value.trim();
       if (!val) return;
       socket.emit('send-chat', val);
       inp.value = '';
+    }
+
+    function sendQuickReaction(emoji) {
+      socket.emit('send-chat', emoji);
     }
 
     document.getElementById('chat-input').addEventListener('keypress', (e) => {
@@ -1185,7 +1383,7 @@
           <span>${msg.isHost ? '👑 ' : ''}${escapeHTML(msg.user)}</span>
           <span style="font-size: 10px; color: var(--text-muted); font-weight: normal;">${escapeHTML(msg.time)}</span>
         </div>
-        <div>${escapeHTML(msg.text)}</div>
+        <div class="chat-text">${escapeHTML(msg.text)}</div>
       `;
       container.appendChild(div);
       container.scrollTop = container.scrollHeight;
@@ -1231,6 +1429,14 @@
       navigator.clipboard.writeText(window.location.href);
       closeInviteModal();
       showToastAlert('📋 ¡Enlace de invitación copiado!');
+    }
+
+    function openHelpModal() {
+      document.getElementById('help-modal').style.display = 'flex';
+    }
+
+    function closeHelpModal() {
+      document.getElementById('help-modal').style.display = 'none';
     }
 
     function openPermissionsModal() {
